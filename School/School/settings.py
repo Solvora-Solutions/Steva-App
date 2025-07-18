@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'Parent',
     'Student',
-    'Staff', 
+    'Staff',
+    'api', 
 ]
 
 MIDDLEWARE = [
@@ -132,7 +133,11 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
 }
+
 
 AUTH_USER_MODEL = 'Users.User'   
 
