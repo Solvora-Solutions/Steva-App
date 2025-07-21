@@ -5,12 +5,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view, permission_classes
+from django.contrib.auth import authenticate
 from .serializers import ParentSerializer
 from Parent.models import Parent
-from django.contrib.auth import authenticate
 
 
-# ========== PARENT VIEWSET (uses ModelViewSet for router support) ==========
+# ========== PARENT VIEWSET ==========
 class ParentsViewSet(viewsets.ModelViewSet):
     queryset = Parent.objects.all()
     serializer_class = ParentSerializer
@@ -20,8 +20,10 @@ class ParentsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         parent = serializer.save()
         user = parent.user
-        if 'password' in serializer.validated_data['user']:
-            user.set_password(serializer.validated_data['user']['password'])
+        # If password is present in the nested user data
+        password = self.request.data.get("user", {}).get("password")
+        if password:
+            user.set_password(password)
             user.save()
 
 
@@ -34,6 +36,9 @@ def parent_login(request):
     """
     email = request.data.get('email')
     password = request.data.get('password')
+
+    if not email or not password:
+        return Response({'detail': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
     user = authenticate(username=email, password=password)
 
@@ -56,6 +61,9 @@ def reset_parent_password(request):
     """
     email = request.data.get('email')
     new_password = request.data.get('new_password')
+
+    if not email or not new_password:
+        return Response({'detail': 'Email and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         parent = Parent.objects.select_related('user').get(user__email=email)

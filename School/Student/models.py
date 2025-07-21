@@ -33,10 +33,9 @@ class Student(models.Model):
     )
 
     def __str__(self):
-        name = self.user.get_full_name() if self.user else "Unnamed Student"
-        return f"{name} - {self.current_class}"
+        return f"{self.user.email} - {self.current_class}"
 
     class Meta:
         verbose_name = "Student"
         verbose_name_plural = "Students"
-        ordering = ['user__last_name', 'user__first_name']
+        ordering = ['user__email']

@@ -30,9 +30,9 @@ class Parent(models.Model):
     )
 
     def __str__(self):
-        return self.user.get_full_name() or self.user.email
+        return self.user.email
 
     class Meta:
         verbose_name = "Parent"
         verbose_name_plural = "Parents"
-        ordering = ['user__last_name', 'user__first_name']
+        ordering = ['user__email']
