@@ -5,7 +5,6 @@ from Parent.models import Parent
 from Student.models import Student
 from Staff.models import Staff
 
-
 # ====================
 # BASIC CHILD SERIALIZER
 # ====================
@@ -42,7 +41,6 @@ class UserSerializer(serializers.ModelSerializer):
             password = validated_data.pop('password', None)
             if not password:
                 raise serializers.ValidationError({"password": "Password is required."})
-
             validated_data['role'] = validated_data.get('role', 'parent')
             user = User(**validated_data)
             user.set_password(password)
@@ -55,10 +53,13 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # ====================
-# STUDENT SERIALIZER (FULL — READ-ONLY via ViewSet)
+# STUDENT SERIALIZER (Full Read-Only)
 # ====================
 class StudentSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    parent_ids = serializers.PrimaryKeyRelatedField(
+        source='parents', many=True, queryset=User.objects.filter(role='parent')
+    )
 
     class Meta:
         model = Student
@@ -84,33 +85,31 @@ class StaffSerializer(serializers.ModelSerializer):
 # ====================
 class ParentSerializer(serializers.ModelSerializer):
     user = UserSerializer()
-    children = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all(), many=True)
+    children = serializers.SerializerMethodField()
 
     class Meta:
         model = Parent
-        fields = ['id', 'user', 'phone_number', 'address', 'occupation', 'children']
-        read_only_fields = ['id']
+        fields = ['id', 'user', 'phone_number', 'admission_date', 'created_at', 'children']
+        read_only_fields = ['id', 'created_at', 'admission_date']
+
+    def get_children(self, obj):
+        try:
+            students = Student.objects.filter(parents=obj.user)
+            return ChildDisplaySerializer(students, many=True).data
+        except Exception as e:
+            return [{"error": "Failed to load children", "details": str(e)}]
 
     def validate_phone_number(self, value):
-        if not value.isdigit() or len(value) < 10:
+        if not value.strip().replace("+", "").isdigit() or len(value) < 10:
             raise serializers.ValidationError("Enter a valid phone number (at least 10 digits).")
-        return value
-
-    def validate_occupation(self, value):
-        if not value.strip():
-            raise serializers.ValidationError("Occupation cannot be blank.")
         return value
 
     def create(self, validated_data):
         try:
             user_data = validated_data.pop('user')
-            children_data = validated_data.pop('children', [])
-
             user_data['role'] = 'parent'
             user = UserSerializer().create(user_data)
-
             parent = Parent.objects.create(user=user, **validated_data)
-            parent.children.set(children_data)
             return parent
         except IntegrityError as e:
             raise serializers.ValidationError({"error": "Parent creation failed.", "details": str(e)})
@@ -120,8 +119,6 @@ class ParentSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             user_data = validated_data.pop('user', None)
-            children = validated_data.pop('children', None)
-
             if user_data:
                 user = instance.user
                 for attr, value in user_data.items():
@@ -133,11 +130,7 @@ class ParentSerializer(serializers.ModelSerializer):
 
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
-
             instance.save()
-
-            if children is not None:
-                instance.children.set(children)
 
             return instance
         except IntegrityError as e:
@@ -149,7 +142,7 @@ class ParentSerializer(serializers.ModelSerializer):
         try:
             rep = super().to_representation(instance)
             rep['user'] = UserSerializer(instance.user).data
-            rep['children'] = ChildDisplaySerializer(instance.children.all(), many=True).data
+            rep['children'] = self.get_children(instance)
             return rep
         except Exception as e:
             return {"error": "Failed to serialize parent data", "details": str(e)}

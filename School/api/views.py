@@ -12,6 +12,10 @@ from Parent.models import Parent
 
 # ========== PARENT VIEWSET ==========
 class ParentsViewSet(viewsets.ModelViewSet):
+    """
+    CRUD operations for Parent model.
+    Accessible only to authenticated users.
+    """
     queryset = Parent.objects.all()
     serializer_class = ParentSerializer
     authentication_classes = [JWTAuthentication]
@@ -20,7 +24,6 @@ class ParentsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         parent = serializer.save()
         user = parent.user
-        # If password is present in the nested user data
         password = self.request.data.get("user", {}).get("password")
         if password:
             user.set_password(password)
@@ -32,24 +35,29 @@ class ParentsViewSet(viewsets.ModelViewSet):
 @permission_classes([AllowAny])
 def parent_login(request):
     """
-    Log in a parent using email and password, return JWT tokens.
+    Log in a parent using email and password.
+
+    Returns:
+        JWT access and refresh tokens if authentication is successful.
     """
     email = request.data.get('email')
     password = request.data.get('password')
 
     if not email or not password:
-        return Response({'detail': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Email and password are required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     user = authenticate(username=email, password=password)
 
-    if user is not None and hasattr(user, 'parent'):
+    if user and hasattr(user, 'parent'):
         refresh = RefreshToken.for_user(user)
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
         }, status=status.HTTP_200_OK)
 
-    return Response({'detail': 'Invalid credentials or not a parent'}, status=status.HTTP_401_UNAUTHORIZED)
+    return Response({'detail': 'Invalid credentials or not a parent.'},
+                    status=status.HTTP_401_UNAUTHORIZED)
 
 
 # ========== PARENT PASSWORD RESET ==========
@@ -57,20 +65,23 @@ def parent_login(request):
 @permission_classes([AllowAny])
 def reset_parent_password(request):
     """
-    Reset a parent's password using their email and a new password.
+    Reset a parent's password using their email and new password.
     """
     email = request.data.get('email')
     new_password = request.data.get('new_password')
 
     if not email or not new_password:
-        return Response({'detail': 'Email and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Email and new password are required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     try:
         parent = Parent.objects.select_related('user').get(user__email=email)
         user = parent.user
         user.set_password(new_password)
         user.save()
-        return Response({'detail': 'Password reset successful'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Password reset successful.'},
+                        status=status.HTTP_200_OK)
 
     except Parent.DoesNotExist:
-        return Response({'detail': 'Parent with this email not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'detail': 'No parent found with this email.'},
+                        status=status.HTTP_404_NOT_FOUND)
