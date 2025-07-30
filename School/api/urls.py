@@ -1,17 +1,37 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ParentsViewSet, parent_login, reset_parent_password
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-# Router setup for ViewSets
+from .views import (
+    UserViewSet,
+    ParentViewSet,
+    StudentViewSet,
+    unified_login,
+    user_logout,
+    reset_password
+)
+
+# ================================
+# Router setup
+# ================================
 router = DefaultRouter()
-router.register(r'parents', ParentsViewSet, basename='parents')
+router.register(r'users', UserViewSet, basename='users')
+router.register(r'parents', ParentViewSet, basename='parents')
+router.register(r'students', StudentViewSet, basename='students')
 
-# All API routes
+# ================================
+# URL Patterns
+# ================================
 urlpatterns = [
-    # ViewSet routes (CRUD for parents)
+    # CRUD endpoints
     path('', include(router.urls)),
 
-    # Custom parent authentication routes
-    path('parents/login/', parent_login, name='parent-login'),
-    path('parents/reset-password/', reset_parent_password, name='reset-parent-password'),
+    # Authentication (unified for all roles)
+    path('auth/login/', unified_login, name='login'),
+    path('auth/logout/', user_logout, name='logout'),
+    path('auth/reset-password/', reset_password, name='reset-password'),
+
+    # JWT token endpoints (optional)
+    path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

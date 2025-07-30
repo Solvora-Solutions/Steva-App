@@ -1,5 +1,4 @@
 from django.db import models
-from django.utils import timezone
 from django.core.validators import RegexValidator
 from Users.models import User
 
@@ -17,15 +16,15 @@ class Parent(models.Model):
         validators=[
             RegexValidator(
                 regex=r'^\+?\d{9,15}$',
-                message="Phone number must be in the format: '+233123456789'. Up to 15 digits allowed."
+                message=" +233123456789 ",
             )
         ],
-        help_text="Parent's phone number (international format)."
+        help_text="Parent's phone number in international format."
     )
 
-    admission_date = models.DateField(
-        default=timezone.now,
-        help_text="Date the parent was registered in the system."
+    verified = models.BooleanField(
+        default=False,
+        help_text="Indicates if the parent has completed SMS verification."
     )
 
     created_at = models.DateTimeField(
