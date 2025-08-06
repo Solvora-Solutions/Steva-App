@@ -16,26 +16,35 @@ User = get_user_model()
 
 
 # =========================
-# USER VIEWSET (Protected)
+# USER VIEWSET
 # =========================
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """Allow registration without authentication, protect others."""
+        if self.action in ['create']:  # registration
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
 
 # =========================
-# PARENT VIEWSET (Protected)
+# PARENT VIEWSET
 # =========================
 class ParentViewSet(viewsets.ModelViewSet):
     queryset = Parent.objects.select_related('user').all()
     serializer_class = ParentSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """Allow parent creation without login; protect other actions."""
+        if self.action in ['create']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
-        """Handles duplicate email gracefully."""
         try:
             return super().create(request, *args, **kwargs)
         except IntegrityError:
@@ -46,22 +55,24 @@ class ParentViewSet(viewsets.ModelViewSet):
 
 
 # =========================
-# STUDENT VIEWSET (Protected)
+# STUDENT VIEWSET
 # =========================
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """Require authentication for all student actions."""
+        return [IsAuthenticated()]
 
 
 # =========================
-# UNIFIED LOGIN (Public)
+# UNIFIED LOGIN
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def unified_login(request):
-    """Unified login for Parents and Admins."""
     email = request.data.get('email')
     password = request.data.get('password')
 
@@ -86,13 +97,13 @@ def unified_login(request):
             'email': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'role': getattr(user, 'role', 'parent'),  # default if role not defined
+            'role': getattr(user, 'role', 'parent'),
         }
     })
 
 
 # =========================
-# LOGOUT (Protected)
+# LOGOUT
 # =========================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -116,7 +127,7 @@ def user_logout(request):
 
 
 # =========================
-# PASSWORD RESET (Public)
+# PASSWORD RESET
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])

@@ -29,7 +29,7 @@ INSTALLED_APPS = [
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  # For logout/blacklist
+    'rest_framework_simplejwt.token_blacklist',  # For logout
     'drf_yasg',
     'corsheaders',
 ]
@@ -37,8 +37,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # Allow frontend requests
+    'django.middleware.common.CommonMiddleware',  # Must be after CorsMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -50,7 +50,7 @@ ROOT_URLCONF = 'School.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # Add template dirs if needed
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -66,7 +66,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'School.wsgi.application'
 
 # ============================
-# Database
+# Database (SQLite for now)
 # ============================
 DATABASES = {
     'default': {
@@ -97,6 +97,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # Default is IsAuthenticated; views override for login/registration
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
@@ -125,9 +126,20 @@ SWAGGER_SETTINGS = {
 }
 
 # ============================
-# CORS (Allow frontend in dev)
+# CORS Settings (Frontend Access)
 # ============================
-CORS_ALLOW_ALL_ORIGINS = True  # Dev: allow all; restrict in prod
+CORS_ALLOW_ALL_ORIGINS = True  # Dev: Allow all origins
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+    'x-csrftoken',
+    'accept',
+    'origin',
+    'user-agent',
+    'accept-encoding',
+    'accept-language',
+]
 
 # ============================
 # Internationalization
