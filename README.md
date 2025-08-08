@@ -1,7 +1,7 @@
 # Steva-App
 # 📌 Fee Payment App – README
 
-## 📖 Overview
+## 📖 Overview 
 The **Fee Payment App** is a digital platform designed to streamline and simplify school fee payments for parents and guardians. It offers a secure, fast, and transparent payment process with real-time updates, eliminating the need for manual transactions and physical receipts.
 
 ---
