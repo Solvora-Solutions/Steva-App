@@ -1,26 +1,29 @@
-# Python
+# Python cache files
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
 *.so
 
 # Virtual environments
 env/
 venv/
 ENV/
-.venv/
-../env/
+env.bak/
+venv.bak/
 
-# Django specific
+# Django database
 *.sqlite3
 db.sqlite3
-*.log
 
-# IDE / Editor settings
+# Django static files
+staticfiles/
+static/
+
+# IDE files
 .vscode/
 .idea/
 *.swp
+*.swo
 
 # OS files
 .DS_Store
