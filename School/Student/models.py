@@ -1,6 +1,6 @@
 import re
 from django.db import models, transaction
-from django.core.validators import MinLengthValidator, RegexValidator
+from django.core.validators import MinLengthValidator
 from Parent.models import Parent
 
 
@@ -37,10 +37,6 @@ class Student(models.Model):
         editable=False,
         null=True,
         blank=True,
-        validators=[RegexValidator(
-            regex=r'^SA\d{3,}$',
-            message='Student ID must be in format SA001, SA002, etc.'
-        )],
         help_text="Auto-generated student ID starting with SA (e.g., SA001)."
     )
 
@@ -102,15 +98,13 @@ class Student(models.Model):
                     .first()
                 )
 
-                if last_student and last_student.student_number:
-                    num = last_student.student_number + 1
-                else:
-                    num = 1
-
+                num = (last_student.student_number + 1) if last_student else 1
                 self.student_number = num
                 self.student_id = f"SA{num:03d}"
 
-        super().save(*args, **kwargs)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def get_full_name(self):
         """Return the student's full name."""
@@ -128,8 +122,7 @@ class Student(models.Model):
 
     def __str__(self):
         """String representation of the student."""
-        status = "Active" if self.is_active else "Inactive"
-        return f"{self.student_id or 'Pending'} - {self.get_full_name()} | {self.current_class} ({status})"
+        return f"{self.student_id or 'Pending'} - {self.get_full_name()}"
 
     class Meta:
         verbose_name = "Student"
@@ -143,6 +136,10 @@ class Student(models.Model):
             models.Index(fields=['-created_at']),
         ]
         constraints = [
+            models.UniqueConstraint(
+                fields=['student_number', 'student_id'],
+                name="unique_student_number_id"
+            ),
             models.CheckConstraint(
                 check=~models.Q(first_name=""),
                 name="student_first_name_not_empty"
