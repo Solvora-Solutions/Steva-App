@@ -17,7 +17,7 @@ class UserManager(BaseUserManager):
         first_name = first_name or "First"
         last_name = last_name or "Last"
 
-        # UUID username
+        # UUID username if not provided
         extra_fields.setdefault('username', str(uuid.uuid4()))
 
         user = self.model(
@@ -32,9 +32,7 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, first_name="Admin", last_name="User", **extra_fields):
-        """Create and return a superuser."""
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
+        """Create and return a superuser with full permissions."""
         extra_fields.setdefault('role', 'admin')
         extra_fields.setdefault('username', 'admin')
 
@@ -60,13 +58,23 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Permissions
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']  # This makes Django prompt for names in createsuperuser
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.role})"
+
+    # ==== Admin/Staff handling ====
+    @property
+    def is_staff(self):
+        """Django uses is_staff for admin access. Here it equals role=admin."""
+        return self.role == 'admin'
+
+    @property
+    def is_admin(self):
+        """Convenience property (same as is_staff or superuser)."""
+        return self.role == 'admin' or self.is_superuser
