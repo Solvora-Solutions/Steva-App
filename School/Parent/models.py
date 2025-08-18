@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from Users.models import User
 
 
@@ -14,15 +15,15 @@ class Parent(models.Model):
     )
 
     phone_number = models.CharField(
-        max_length=20,
+        max_length=15,  # E.164 format max length
         unique=True,  # Prevent duplicate phone numbers
         validators=[
             RegexValidator(
-                regex=r'^(\+233|0)[2-9][0-9]{8}$',
-                message="Enter a valid phone number (e.g., +233241234567 or 0241234567)",
+                regex=r'^\+233[2-9][0-9]{8}$',
+                message="Enter a valid phone number in E.164 Ghana format (e.g., +233241234567).",
             )
         ],
-        help_text="Parent's phone number in Ghana format."
+        help_text="Parent's phone number stored in E.164 Ghana format (e.g., +233241234567)."
     )
 
     # Status fields
@@ -37,60 +38,59 @@ class Parent(models.Model):
     )
 
     # Audit fields
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="Profile creation timestamp."
-    )
-    
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        help_text="Last update timestamp."
-    )
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Profile creation timestamp.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Last update timestamp.")
 
     def clean(self):
         """Custom validation."""
         super().clean()
-        
+
         # Ensure linked user has parent role
         if self.user_id and self.user.role != 'parent':
-            raise ValidationError({
-                'user': 'Linked user must have role "parent".'
-            })
-        
-        # Validate phone number format more strictly
+            raise ValidationError({'user': 'Linked user must have role "parent".'})
+
+        # Validate Ghana mobile prefixes
         if self.phone_number:
             phone = self.phone_number.strip()
-            # Check for Ghana mobile prefixes (MTN, Telecel, AirtelTigo)
-            valid_prefixes = ['024', '054', '055', '059', '020', '050', '026', '056', '027', '057', '028', '058']
-            if phone.startswith('0') and phone[1:4] not in valid_prefixes:
-                raise ValidationError({
-                    'phone_number': 'Phone number must start with a valid Ghana mobile prefix.'
-                })
+            valid_prefixes = getattr(
+                settings,
+                "GHANA_MOBILE_PREFIXES",
+                ['024', '054', '055', '059', '020', '050', '026', '056', '027', '057', '028', '058']
+            )
+            # Example: +23324xxxxxxx → prefix = 024
+            if phone.startswith('+233'):
+                local_prefix = '0' + phone[4:6] + phone[6:7]
+                if local_prefix not in valid_prefixes:
+                    raise ValidationError({
+                        'phone_number': 'Phone number must start with a valid Ghana mobile prefix.'
+                    })
 
     def save(self, *args, **kwargs):
         """Override save to format phone number and validate."""
-        # Format phone number
         if self.phone_number:
             self.phone_number = self._format_phone_number(self.phone_number)
-        
+
         # Run validation
         self.full_clean()
-        
         super().save(*args, **kwargs)
 
     def _format_phone_number(self, phone):
-        """Format phone number to standard format."""
+        """Convert phone number to E.164 (+233xxxxxxxxx)."""
         if not phone:
             return phone
+
+        # Remove spaces, hyphens, brackets
+        phone = ''.join(filter(str.isdigit, phone.replace('+', '')))
         
-        # Remove spaces and special characters
-        phone = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        # Handle local format 0xxxxxxxxx
+        if phone.startswith('0') and len(phone) == 10:
+            return f"+233{phone[1:]}"
         
-        # Convert +233 to 0 format for consistency
-        if phone.startswith('+233'):
-            phone = '0' + phone[4:]
+        # Handle already E.164 (+233xxxxxxxxx)
+        if phone.startswith('233') and len(phone) == 12:
+            return f"+{phone}"
         
-        return phone
+        return phone  # fallback
 
     @property
     def full_name(self):
@@ -99,15 +99,10 @@ class Parent(models.Model):
 
     @property
     def display_phone(self):
-        """Return formatted phone number for display."""
+        """Return formatted phone number for display (local style)."""
         if not self.phone_number:
             return ""
-        
-        phone = self.phone_number
-        if phone.startswith('0'):
-            # Format as +233 XX XXX XXXX
-            return f"+233 {phone[1:3]} {phone[3:6]} {phone[6:]}"
-        return phone
+        return f"0{self.phone_number[4:]}"  # Convert +233xxxxxxx → 0xxxxxxxxx
 
     @property
     def total_children(self):
@@ -120,13 +115,11 @@ class Parent(models.Model):
         return self.students.filter(is_active=True)
 
     def get_payment_history(self):
-        """Get payment history for all children (placeholder for payment integration)."""
-        # This will be implemented when we add payment models
+        """Get payment history for all children (placeholder)."""
         return []
 
     def get_outstanding_fees(self):
-        """Get total outstanding fees for all children (placeholder for payment integration)."""
-        # This will be implemented when we add payment models
+        """Get total outstanding fees for all children (placeholder)."""
         return 0
 
     def verify_phone(self):
@@ -150,6 +143,7 @@ class Parent(models.Model):
             models.Index(fields=['phone_number']),
             models.Index(fields=['verified']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['user']),  # added for performance
         ]
         constraints = [
             models.CheckConstraint(
