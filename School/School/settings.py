@@ -5,14 +5,14 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ============================
-# Security (Dev only)
+# Security & Dev Settings
 # ============================
 SECRET_KEY = "dev-secret-key-change-in-prod"
 DEBUG = True
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 # ============================
-# Application definition
+# Installed Apps
 # ============================
 DJANGO_APPS = [
     "django.contrib.admin",
@@ -40,6 +40,9 @@ THIRD_PARTY_APPS = [
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 
+# ============================
+# Middleware
+# ============================
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -53,6 +56,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "School.urls"
 
+# ============================
+# Templates
+# ============================
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -72,7 +78,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "School.wsgi.application"
 
 # ============================
-# Database (SQLite for Dev)
+# Database (SQLite Dev)
 # ============================
 DATABASES = {
     "default": {
@@ -87,7 +93,7 @@ DATABASES = {
 AUTH_USER_MODEL = "Users.User"
 
 # ============================
-# Password validation
+# Password Validators
 # ============================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -108,7 +114,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer",   # ✅ add this back for dev
+        "rest_framework.renderers.BrowsableAPIRenderer",
     ],
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
@@ -134,16 +140,17 @@ SIMPLE_JWT = {
 }
 
 # ============================
-# CORS (Wide Open in Dev)
+# CORS (Dev only)
 # ============================
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # ============================
-# Email (Console in Dev)
+# Email (Dev)
 # ============================
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@school.dev"
+FRONTEND_URL = "http://localhost:3000"
 
 # ============================
 # Static & Media
@@ -157,3 +164,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Default Auto Field
 # ============================
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ============================
+# Swagger
+# ============================
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {"type": "apiKey", "name": "Authorization", "in": "header"}
+    },
+    "USE_SESSION_AUTH": False,
+    "JSON_EDITOR": True,
+}
