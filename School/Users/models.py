@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -53,7 +54,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)  # ✅ added
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='parent')
+
+    # Tracking fields
+    date_joined = models.DateTimeField(default=timezone.now)  # ✅ added
 
     # Permissions
     is_active = models.BooleanField(default=True)
