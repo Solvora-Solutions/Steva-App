@@ -6,6 +6,7 @@ from .views import (
     UserViewSet,
     ParentViewSet,
     StudentViewSet,
+    RegisterView,
     unified_login,
     user_logout,
     request_password_reset,
@@ -26,8 +27,11 @@ urlpatterns = [
     # Router endpoints for CRUD
     path("", include(router.urls)),
 
+    # Registration
+    path("auth/register/", RegisterView.as_view(), name="register"),
+
     # Custom Auth endpoints
-    path("auth/login/", unified_login, name="unified_login"),         # Supports email/phone login
+    path("auth/login/", unified_login, name="unified_login"),   # Supports email/phone login
     path("auth/logout/", user_logout, name="user_logout"),
     path("auth/profile/", user_profile, name="user_profile"),
     path("auth/change-password/", change_password, name="change_password"),

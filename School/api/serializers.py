@@ -28,7 +28,6 @@ class ParentUserPKRelatedField(serializers.PrimaryKeyRelatedField):
         super().__init__(**kwargs)
 
     def to_internal_value(self, data):
-        # data is expected to be a User PK (int/str)
         try:
             parent = Parent.objects.select_related('user').get(user_id=data)
         except Parent.DoesNotExist:
@@ -36,9 +35,7 @@ class ParentUserPKRelatedField(serializers.PrimaryKeyRelatedField):
         return parent
 
     def to_representation(self, value):
-        # Represent as the linked user ID
-        # value is a Parent instance
-        return value.user_id
+        return value.user_id  # return parent’s user ID
 
 
 # ====================
@@ -65,15 +62,11 @@ class UserSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         if not value:
             raise serializers.ValidationError("Email is required.")
-
-        # Normalize (keep escape for email as you had it)
         value = escape(value.strip().lower())
-
         try:
             validate_email(value)
         except DjangoValidationError:
             raise serializers.ValidationError("Invalid email format.")
-
         qs = User.objects.filter(email=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -91,10 +84,7 @@ class UserSerializer(serializers.ModelSerializer):
     def validate_first_name(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("First name is required.")
-
-        # Use plain strip (HTML-escaping here breaks the regex for apostrophes)
         value = value.strip()
-
         if not re.match(r'^[a-zA-Z\s\-\'\.]+$', value):
             raise serializers.ValidationError(
                 "First name can only contain letters, spaces, hyphens, apostrophes, and periods."
@@ -104,10 +94,7 @@ class UserSerializer(serializers.ModelSerializer):
     def validate_last_name(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("Last name is required.")
-
-        # Use plain strip (HTML-escaping here breaks the regex for apostrophes)
         value = value.strip()
-
         if not re.match(r'^[a-zA-Z\s\-\'\.]+$', value):
             raise serializers.ValidationError(
                 "Last name can only contain letters, spaces, hyphens, apostrophes, and periods."
@@ -126,7 +113,6 @@ class UserSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 validated_data.pop('confirm_password', None)
                 password = validated_data.pop('password')
-                # Secure username generation
                 validated_data.setdefault('username', f"user_{secrets.token_urlsafe(12)}")
                 validated_data.setdefault('role', 'parent')
                 user = User(**validated_data)
@@ -153,7 +139,6 @@ class UserSerializer(serializers.ModelSerializer):
 # STUDENT SERIALIZER
 # ====================
 class StudentSerializer(serializers.ModelSerializer):
-    # Accept a list of parent *user* IDs; internally set Student.parents (Parent M2M)
     parent_users = ParentUserPKRelatedField(
         source='parents',
         help_text="List of parent *User* IDs"
@@ -198,7 +183,6 @@ class StudentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Current class is required.")
         return value.strip()
 
-    # ✅ Correct validator name that DRF will call for parent_users
     def validate_parent_users(self, value):
         if not value:
             raise serializers.ValidationError("At least one parent must be assigned.")
@@ -251,10 +235,7 @@ class ParentSerializer(serializers.ModelSerializer):
     def validate_phone_number(self, value):
         if not value:
             raise serializers.ValidationError("Phone number is required.")
-
-        # Keep your sanitization here (safe)
         value = escape(value.strip())
-
         digits_only = re.sub(r'\D', '', value)
         if len(digits_only) < 10:
             raise serializers.ValidationError("Phone number must have at least 10 digits.")
