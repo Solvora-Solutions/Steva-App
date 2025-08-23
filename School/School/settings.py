@@ -1,15 +1,25 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+import dj_database_url
 
+# ============================
+# Base Directory
+# ============================
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ============================
+# Load Environment Variables
+# ============================
+load_dotenv()  # reads .env file
 
 # ============================
 # Security & Dev Settings
 # ============================
-SECRET_KEY = "dev-secret-key-change-in-prod"
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
+DEBUG = os.environ.get("DEBUG", "True") == "True"
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")  # e.g., "localhost,127.0.0.1"
 
 # ============================
 # Installed Apps
@@ -78,13 +88,12 @@ TEMPLATES = [
 WSGI_APPLICATION = "School.wsgi.application"
 
 # ============================
-# Database (SQLite Dev)
+# Database (SQLite by default, configurable via .env)
 # ============================
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+    )
 }
 
 # ============================
@@ -140,9 +149,9 @@ SIMPLE_JWT = {
 }
 
 # ============================
-# CORS (Dev only)
+# CORS
 # ============================
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True  # For dev/testing only
 CORS_ALLOW_CREDENTIALS = True
 
 # ============================
@@ -150,13 +159,15 @@ CORS_ALLOW_CREDENTIALS = True
 # ============================
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@school.dev"
-FRONTEND_URL = "http://localhost:3000"
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # ============================
 # Static & Media
 # ============================
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"  # for deployment
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
