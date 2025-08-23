@@ -25,6 +25,10 @@ INSTALLED_APPS = [
     'Parent',
     'Student',
     'api',
+<<<<<<< Updated upstream
+=======
+    'payments',
+>>>>>>> Stashed changes
 
     # Third-party apps
     'rest_framework',
@@ -155,3 +159,26 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================
+#Paystack Settings
+# ============================
+PAYSTACK_SECRET_KEY = 'sk_test_5df109d28a1244ad0cd8003ddd0c1b321a308433'
+PAYSTACK_PUBLIC_KEY = 'pk_test_513aeef105294e66d3b0407755b4ae6b6fc87559'
+
+# ============================
+# Africa's Talking Settings
+# ============================
+AFRICASTALKING_USERNAME = 'sandbox'
+AFRICASTALKING_API_KEY = 'atsk_b17ffe277702d63f88a46132e9654eba26ab22f4f2173b43c9c5a50bdaea143079423ebd'
+
+#=============================
+#Email Settings
+#=============================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'milleradu776@gmail.com'
+EMAIL_HOST_PASSWORD = 'hubc qvhv vfvw bfnw'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

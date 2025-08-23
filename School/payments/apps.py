@@ -1,7 +1,6 @@
-#Parents apps.py
 from django.apps import AppConfig
 
 
-class ParentConfig(AppConfig):
+class PaymentsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'Parent'
+    name = 'payments'
