@@ -27,3 +27,11 @@ static/
 # OS files
 .DS_Store
 Thumbs.db
+
+
+
+
+../.env
+../Procfile
+logs/
+../env/
