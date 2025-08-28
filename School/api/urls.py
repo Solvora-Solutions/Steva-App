@@ -29,14 +29,16 @@ router.register(r"students", StudentViewSet, basename="student")
 # URL Patterns
 # ============================
 urlpatterns = [
-    # CRUD endpoints (users, parents, students)
+    # ============================
+    # CRUD Endpoints
+    # ============================
     path("", include(router.urls)),
 
     # ============================
     # Authentication & Profile
     # ============================
     path("auth/register/", RegisterView.as_view(), name="register"),
-    path("auth/login/", unified_login, name="unified_login"),   # Email/Phone/Google login
+    path("auth/login/", unified_login, name="unified_login"),   # Custom Email/Phone login
     path("auth/logout/", user_logout, name="user_logout"),
     path("auth/profile/", user_profile, name="user_profile"),
     path("auth/change-password/", change_password, name="change_password"),
@@ -60,5 +62,7 @@ urlpatterns = [
     # ============================
     # Google OAuth2 (social-auth-app-django)
     # ============================
-    path("auth/social/", include("social_django.urls", namespace="social")),
+    # Login → /auth/login/google-oauth2/
+    # Callback → /auth/complete/google-oauth2/
+    path("auth/", include("social_django.urls", namespace="social")),
 ]
