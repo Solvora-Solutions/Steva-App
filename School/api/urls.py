@@ -17,26 +17,33 @@ from .views import (
 
 app_name = "api"
 
-# Use DRF Router for ViewSets
+# ============================
+# DRF Router for ViewSets
+# ============================
 router = DefaultRouter()
 router.register(r"users", UserViewSet, basename="user")
 router.register(r"parents", ParentViewSet, basename="parent")
 router.register(r"students", StudentViewSet, basename="student")
 
+# ============================
+# URL Patterns
+# ============================
 urlpatterns = [
-    # Router endpoints for CRUD
+    # CRUD endpoints (users, parents, students)
     path("", include(router.urls)),
 
-    # Registration
+    # ============================
+    # Authentication & Profile
+    # ============================
     path("auth/register/", RegisterView.as_view(), name="register"),
-
-    # Custom Auth endpoints
-    path("auth/login/", unified_login, name="unified_login"),   # Supports email/phone login
+    path("auth/login/", unified_login, name="unified_login"),   # Email/Phone/Google login
     path("auth/logout/", user_logout, name="user_logout"),
     path("auth/profile/", user_profile, name="user_profile"),
     path("auth/change-password/", change_password, name="change_password"),
 
+    # ============================
     # Password Reset Flow
+    # ============================
     path("auth/password-reset/", request_password_reset, name="request_password_reset"),
     path(
         "auth/password-reset-confirm/<str:uid>/<str:token>/",
@@ -44,7 +51,14 @@ urlpatterns = [
         name="confirm_password_reset",
     ),
 
-    # JWT Token endpoints
+    # ============================
+    # JWT Authentication
+    # ============================
     path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+
+    # ============================
+    # Google OAuth2 (social-auth-app-django)
+    # ============================
+    path("auth/social/", include("social_django.urls", namespace="social")),
 ]

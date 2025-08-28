@@ -4,8 +4,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.conf import settings
+
+from google.auth.transport import requests
+from google.oauth2 import id_token
 
 from Users.models import User
 from Parent.models import Parent
@@ -91,6 +95,52 @@ def unified_login(request):
         "access": str(refresh.access_token),
         "user": UserSerializer(user).data,
     })
+
+
+# =========================
+# GOOGLE LOGIN
+# =========================
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token = request.data.get("token")
+
+        if not token:
+            return Response({"detail": "Google token is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Verify the token against Google
+            idinfo = id_token.verify_oauth2_token(
+                token, requests.Request(), settings.GOOGLE_CLIENT_ID
+            )
+
+            email = idinfo.get("email")
+            name = idinfo.get("name")
+            picture = idinfo.get("picture")
+
+            user, created = User.objects.get_or_create(email=email)
+            if created:
+                user.username = email.split("@")[0]
+                user.first_name = name.split(" ")[0] if name else ""
+                user.last_name = " ".join(name.split(" ")[1:]) if name else ""
+                user.save()
+
+                # Auto-create Parent profile for new users
+                Parent.objects.create(user=user)
+
+            # Issue JWT tokens
+            refresh = RefreshToken.for_user(user)
+
+            return Response({
+                "detail": "Google login successful.",
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+                "user": UserSerializer(user).data,
+            })
+
+        except ValueError:
+            return Response({"detail": "Invalid Google token."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # =========================
