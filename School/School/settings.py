@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ============================
 # Load Environment Variables
 # ============================
-load_dotenv()  # reads from .env file
+load_dotenv()
 
 # ============================
 # Security & Debug
@@ -20,7 +20,6 @@ load_dotenv()  # reads from .env file
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-# Allow localhost, 127.0.0.1, and any ngrok tunnel
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS", "localhost,127.0.0.1,.ngrok-free.app"
 ).split(",")
@@ -50,6 +49,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "drf_yasg",
     "corsheaders",
+    "social_django",  # Google Sign-In
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
@@ -59,7 +59,7 @@ INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 # ============================
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",  # must be high up
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -84,6 +84,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "social_django.context_processors.backends",  # Google login
+                "social_django.context_processors.login_redirect",  # Google login
             ],
         },
     },
@@ -110,10 +112,7 @@ AUTH_USER_MODEL = "Users.User"
 # ============================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 8},
-    },
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -158,7 +157,6 @@ SIMPLE_JWT = {
 # ============================
 # CORS
 # ============================
-# For dev/testing with ngrok
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
@@ -194,3 +192,30 @@ SWAGGER_SETTINGS = {
     "USE_SESSION_AUTH": False,
     "JSON_EDITOR": True,
 }
+
+# ============================
+# Social Auth (Google)
+# ============================
+AUTHENTICATION_BACKENDS = (
+    "social_core.backends.google.GoogleOAuth2",  # Google OAuth2
+    "django.contrib.auth.backends.ModelBackend",
+)
+
+# Google OAuth2 Config
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+# Scopes & extra data
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "openid",
+]
+SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]
+
+# Login / Logout redirects
+LOGIN_URL = "/google-auth-o2/login/"
+LOGOUT_URL = "/logout/"
+LOGIN_REDIRECT_URL = FRONTEND_URL
+LOGOUT_REDIRECT_URL = FRONTEND_URL
