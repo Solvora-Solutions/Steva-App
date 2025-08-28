@@ -49,7 +49,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "drf_yasg",
     "corsheaders",
-    "social_django",  # Google Sign-In
+    "social_django",  # Google OAuth2
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
@@ -84,8 +84,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "social_django.context_processors.backends",  # Google login
-                "social_django.context_processors.login_redirect",  # Google login
+                "social_django.context_processors.backends",
+                "social_django.context_processors.login_redirect",
             ],
         },
     },
@@ -204,7 +204,10 @@ AUTHENTICATION_BACKENDS = (
 # Google OAuth2 Config
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI",
+    "http://127.0.0.1:8000/auth/login/google-oauth2/complete/"
+)
 
 # Scopes & extra data
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
@@ -215,7 +218,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
 SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]
 
 # Login / Logout redirects
-LOGIN_URL = "/google-auth-o2/login/"
+LOGIN_URL = "/auth/login/google-oauth2/"
 LOGOUT_URL = "/logout/"
 LOGIN_REDIRECT_URL = FRONTEND_URL
 LOGOUT_REDIRECT_URL = FRONTEND_URL
