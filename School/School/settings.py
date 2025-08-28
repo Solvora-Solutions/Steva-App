@@ -12,14 +12,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ============================
 # Load Environment Variables
 # ============================
-load_dotenv()  # reads .env file
+load_dotenv()  # reads from .env file
 
 # ============================
-# Security & Dev Settings
+# Security & Debug
 # ============================
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")  # e.g., "localhost,127.0.0.1"
+
+# Allow localhost, 127.0.0.1, and any ngrok tunnel
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS", "localhost,127.0.0.1,.ngrok-free.app"
+).split(",")
 
 # ============================
 # Installed Apps
@@ -55,7 +59,7 @@ INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 # ============================
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # must be high up
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -88,7 +92,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "School.wsgi.application"
 
 # ============================
-# Database (SQLite by default, configurable via .env)
+# Database
 # ============================
 DATABASES = {
     "default": dj_database_url.config(
@@ -106,7 +110,10 @@ AUTH_USER_MODEL = "Users.User"
 # ============================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -151,7 +158,8 @@ SIMPLE_JWT = {
 # ============================
 # CORS
 # ============================
-CORS_ALLOW_ALL_ORIGINS = True  # For dev/testing only
+# For dev/testing with ngrok
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # ============================
@@ -166,7 +174,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 # ============================
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-STATIC_ROOT = BASE_DIR / "staticfiles"  # for deployment
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
