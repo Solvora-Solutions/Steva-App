@@ -20,7 +20,8 @@ from google.auth.transport import requests as google_requests
 
 import re
 
-from .models import Parent, Student
+from Parent.models import Parent 
+from Student.models import Student
 from .serializers import (
     UserSerializer,
     ParentSerializer,
@@ -46,11 +47,15 @@ def normalize_email(email: str) -> str:
 
 
 def validate_email_format(email: str) -> bool:
-    if not email:
+    """
+    Validate email format using Django's validator and a more comprehensive regex.
+    """
+    if not email or len(email) > 254:  # RFC 5321 limit
         return False
     try:
         validate_email(email)
-        return re.match(r"^[\w.+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email) is not None
+        # More comprehensive regex that handles international domains and special characters
+        return re.match(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$", email) is not None
     except DjangoValidationError:
         return False
 
@@ -146,7 +151,23 @@ def unified_login(request):
             )
             email = normalize_email(idinfo["email"])
 
-            user, _ = User.objects.get_or_create(email=email, defaults={"username": email})
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    "username": email,
+                    "first_name": idinfo.get("given_name", ""),
+                    "last_name": idinfo.get("family_name", ""),
+                }
+            )
+
+            # Log Google login for security monitoring
+            import logging
+            logger = logging.getLogger(__name__)
+            if created:
+                logger.info(f"New user created via Google login: {user.email}")
+            else:
+                logger.info(f"Existing user logged in via Google: {user.email}")
+
             tokens = get_tokens_for_user(user)
             return Response(
                 {
@@ -209,6 +230,7 @@ def unified_login(request):
 # ============================
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
 def user_logout(request):
     refresh_token = request.data.get("refresh")
     if not refresh_token:
@@ -240,12 +262,27 @@ def request_password_reset(request):
     if user:
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = PasswordResetTokenGenerator().make_token(user)
-        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
+
+        # Ensure FRONTEND_URL is configured
+        frontend_url = getattr(settings, 'FRONTEND_URL', None)
+        if not frontend_url:
+            # Log error and return generic response
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error("FRONTEND_URL not configured in settings")
+            return Response({"success": True, "message": "If this email exists, a reset link has been sent."})
+
+        reset_link = f"{frontend_url.rstrip('/')}/reset-password/{uid}/{token}/"
         send_safe_mail(
             "Password Reset",
             f"Use this link to reset your password: {reset_link}",
             [user.email],
         )
+
+        # Log password reset attempt for security monitoring
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Password reset email sent to user: {user.email}")
 
     # generic response to avoid enumeration
     return Response({"success": True, "message": "If this email exists, a reset link has been sent."})
@@ -253,6 +290,7 @@ def request_password_reset(request):
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
 def confirm_password_reset(request, uid, token):
     password = request.data.get("password", "").strip()
     if not password:
@@ -265,6 +303,10 @@ def confirm_password_reset(request, uid, token):
         return Response({"success": False, "message": "Invalid reset link"}, status=400)
 
     if not default_token_generator.check_token(user, token):
+        # Log failed password reset attempt
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Invalid or expired password reset token for user: {user.email}")
         return Response({"success": False, "message": "Invalid or expired token"}, status=400)
 
     try:
@@ -281,6 +323,11 @@ def confirm_password_reset(request, uid, token):
     # 🔒 Invalidate all existing refresh tokens
     blacklist_all_user_refresh_tokens(user)
 
+    # Log successful password reset
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Password successfully reset for user: {user.email}")
+
     return Response({"success": True, "message": "Password reset successful. Please log in again."})
 
 
@@ -289,6 +336,7 @@ def confirm_password_reset(request, uid, token):
 # ============================
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
 def change_password(request):
     user = request.user
     old_password = request.data.get("old_password", "").strip()
