@@ -48,7 +48,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
+            'id', 'email', 'first_name', 'last_name',
             'password', 'confirm_password', 'is_active', 'date_joined', 'role'
         ]
         read_only_fields = ['id', 'date_joined']
@@ -56,7 +56,7 @@ class UserSerializer(serializers.ModelSerializer):
             'email': {'required': True, 'max_length': 254},
             'first_name': {'required': True, 'max_length': 50},
             'last_name': {'required': True, 'max_length': 50},
-            'username': {'max_length': 150},
+        
         }
 
     def validate_email(self, value):
@@ -329,9 +329,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 # Extract password for separate handling
                 password = validated_data.pop('password')
 
-                # Generate unique username
-                validated_data.setdefault('username', f"user_{secrets.token_urlsafe(12)}")
-
+               
                 # Create user instance
                 user = User(**validated_data)
                 user.set_password(password)
@@ -361,7 +359,7 @@ class ParentSerializer(serializers.ModelSerializer):
             'display_phone', 'total_children'
         ]
         extra_kwargs = {
-            'phone_number': {'required': True, 'max_length': 20},
+            'phone_number': {'required': True, 'max_length': 12},
         }
 
     def validate_phone_number(self, value):
