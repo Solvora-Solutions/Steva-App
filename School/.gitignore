@@ -35,3 +35,4 @@ Thumbs.db
 ../Procfile
 logs/
 ../env/
+api/utils.py
