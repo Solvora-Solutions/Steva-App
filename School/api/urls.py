@@ -29,23 +29,23 @@ router.register(r"students", StudentViewSet, basename="student")
 # URL Patterns
 # ============================
 urlpatterns = [
-    # ============================
+    # ----------------------------
     # CRUD Endpoints
-    # ============================
+    # ----------------------------
     path("", include(router.urls)),
 
-    # ============================
+    # ----------------------------
     # Authentication & Profile
-    # ============================
+    # ----------------------------
     path("auth/register/", RegisterView.as_view(), name="register"),
-    path("auth/login/", unified_login, name="unified_login"),   # Custom Email/Phone login
+    path("auth/login/", unified_login, name="unified_login"),  # Custom Email/Phone login
     path("auth/logout/", user_logout, name="user_logout"),
     path("auth/profile/", user_profile, name="user_profile"),
     path("auth/change-password/", change_password, name="change_password"),
 
-    # ============================
+    # ----------------------------
     # Password Reset Flow
-    # ============================
+    # ----------------------------
     path("auth/password-reset/", request_password_reset, name="request_password_reset"),
     path(
         "auth/password-reset-confirm/<str:uid>/<str:token>/",
@@ -53,16 +53,16 @@ urlpatterns = [
         name="confirm_password_reset",
     ),
 
-    # ============================
+    # ----------------------------
     # JWT Authentication
-    # ============================
+    # ----------------------------
     path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
-    # ============================
+    # ----------------------------
     # Google OAuth2 (social-auth-app-django)
-    # ============================
-    # Login → /auth/login/google-oauth2/
+    # ----------------------------
+    # Login   → /auth/login/google-oauth2/
     # Callback → /auth/complete/google-oauth2/
-    path("auth/", include("social_django.urls", namespace="social")),
+    path("auth/social/", include("social_django.urls", namespace="social")),
 ]
