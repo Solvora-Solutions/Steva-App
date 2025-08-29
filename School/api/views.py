@@ -1,173 +1,401 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate, get_user_model
-from django.db import IntegrityError
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email
+from django.utils.encoding import force_str, force_bytes, DjangoUnicodeDecodeError
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.db import transaction
 
-from Users.models import User
-from Parent.models import Parent
+from rest_framework import status, viewsets, generics, permissions, throttling
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+import re
+
+from Parent.models import Parent 
 from Student.models import Student
 from .serializers import (
     UserSerializer,
     ParentSerializer,
     StudentSerializer,
+    RegisterSerializer,
 )
+from .utils import send_safe_mail
+
 
 User = get_user_model()
 
-# =========================
-# USER REGISTRATION
-# =========================
-class RegisterView(APIView):
-    permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                user = serializer.save()
-                user.set_password(request.data["password"])  # securely hash password
-                user.save()
-
-                # Auto-create Parent profile for non-staff users
-                if not user.is_staff:
-                    Parent.objects.create(user=user)
-
-                # Issue JWT tokens
-                refresh = RefreshToken.for_user(user)
-
-                return Response({
-                    "detail": "Registration successful.",
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                    "user": UserSerializer(user).data,
-                }, status=status.HTTP_201_CREATED)
-
-            except IntegrityError:
-                return Response(
-                    {"detail": "A user with this email already exists."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# =========================
-# USER LOGIN (Email or Phone)
-# =========================
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def unified_login(request):
-    email_or_phone = request.data.get("email") or request.data.get("phone")
-    password = request.data.get("password")
-
-    if not email_or_phone or not password:
-        return Response(
-            {"detail": "Email/Phone and password are required."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        user = User.objects.get(email=email_or_phone)
-    except User.DoesNotExist:
-        return Response(
-            {"detail": "Invalid email/phone or password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    if not user.check_password(password):
-        return Response(
-            {"detail": "Invalid email/phone or password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
+# ============================
+# Helpers
+# ============================
+def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
-    return Response({
-        "detail": "Login successful.",
-        "refresh": str(refresh),
-        "access": str(refresh.access_token),
-        "user": UserSerializer(user).data,
-    })
+    return {"refresh": str(refresh), "access": str(refresh.access_token)}
 
 
-# =========================
-# USER LOGOUT
-# =========================
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def user_logout(request):
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def validate_email_format(email: str) -> bool:
+    """
+    Validate email format using Django's validator and a more comprehensive regex.
+    """
+    if not email or len(email) > 254:  # RFC 5321 limit
+        return False
     try:
-        refresh_token = request.data.get("refresh")
-        token = RefreshToken(refresh_token)
-        token.blacklist()
-        return Response({"detail": "Logout successful."}, status=status.HTTP_205_RESET_CONTENT)
-    except Exception:
-        return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+        validate_email(email)
+        # More comprehensive regex that handles international domains and special characters
+        return re.match(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$", email) is not None
+    except DjangoValidationError:
+        return False
 
 
-# =========================
-# USER PROFILE
-# =========================
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def user_profile(request):
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+def blacklist_all_user_refresh_tokens(user):
+    """
+    Blacklist all outstanding refresh tokens for the given user.
+    Safe to call multiple times.
+    """
+    for outstanding in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=outstanding)
 
 
-# =========================
-# CHANGE PASSWORD
-# =========================
+# ============================
+# Throttling
+# ============================
+class BurstRateThrottle(throttling.UserRateThrottle):
+    rate = "5/min"
+
+
+class SustainedRateThrottle(throttling.UserRateThrottle):
+    rate = "100/day"
+
+
+# ============================
+# Registration
+# ============================
+class RegisterView(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        email = request.data.get("email", "").strip()
+        password = request.data.get("password", "").strip()
+
+        if not email:
+            return Response({"success": False, "message": "Email is required"}, status=400)
+        if not password:
+            return Response({"success": False, "message": "Password is required"}, status=400)
+        if not validate_email_format(email):
+            return Response({"success": False, "message": "Invalid email format"}, status=400)
+
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            tokens = get_tokens_for_user(user)
+
+            # Create related profile if applicable
+            if getattr(user, "is_parent", False):
+                Parent.objects.get_or_create(user=user)
+            if getattr(user, "is_student", False):
+                Student.objects.get_or_create(user=user)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "User registered successfully",
+                    "user": UserSerializer(user).data,
+                    "tokens": tokens,
+                },
+                status=201,
+            )
+
+        return Response(
+            {"success": False, "message": "Invalid data", "errors": serializer.errors},
+            status=400,
+        )
+
+
+# ============================
+# Unified Login (email or Google)
+# ============================
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
+def unified_login(request):
+    login_type = request.data.get("type")
+
+    if not login_type:
+        return Response({"success": False, "message": "Login type is required"}, status=400)
+
+    try:
+        # ----- Google Login -----
+        if login_type == "google":
+            token = request.data.get("token")
+            if not token:
+                return Response({"success": False, "message": "Google token is required"}, status=400)
+
+            idinfo = id_token.verify_oauth2_token(
+                token, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+            )
+            email = normalize_email(idinfo["email"])
+
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    "username": email,
+                    "first_name": idinfo.get("given_name", ""),
+                    "last_name": idinfo.get("family_name", ""),
+                }
+            )
+
+            # Log Google login for security monitoring
+            import logging
+            logger = logging.getLogger(__name__)
+            if created:
+                logger.info(f"New user created via Google login: {user.email}")
+            else:
+                logger.info(f"Existing user logged in via Google: {user.email}")
+
+            tokens = get_tokens_for_user(user)
+            return Response(
+                {
+                    "success": True,
+                    "message": "Google login successful",
+                    "user": UserSerializer(user).data,
+                    "tokens": tokens,
+                }
+            )
+
+        # ----- Email/Password Login -----
+        elif login_type == "email":
+            email = request.data.get("email", "").strip()
+            password = request.data.get("password", "").strip()
+
+            if not email:
+                return Response({"success": False, "message": "Email is required"}, status=400)
+            if not password:
+                return Response({"success": False, "message": "Password is required"}, status=400)
+            if not validate_email_format(email):
+                return Response({"success": False, "message": "Invalid email format"}, status=400)
+
+            email = normalize_email(email)
+
+            # Prevent user enumeration via timing
+            user = None
+            user_exists = False
+            try:
+                candidate = User.objects.get(email=email)
+                user_exists = True
+                if candidate.check_password(password):
+                    user = candidate
+            except User.DoesNotExist:
+                pass
+            if not user_exists:
+                # perform dummy hash to keep timing similar
+                User().set_password(password)
+
+            if user is None:
+                return Response({"success": False, "message": "Invalid credentials"}, status=401)
+
+            tokens = get_tokens_for_user(user)
+            return Response(
+                {"success": True, "message": "Login successful", "user": UserSerializer(user).data, "tokens": tokens}
+            )
+
+        return Response(
+            {"success": False, "message": "Invalid login type. Use 'email' or 'google'"},
+            status=400,
+        )
+
+    except ValueError:
+        return Response({"success": False, "message": "Invalid Google token"}, status=400)
+    except Exception:
+        return Response({"success": False, "message": "Login failed. Try again later."}, status=500)
+
+
+# ============================
+# Logout (blacklist provided refresh token)
+# ============================
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
+def user_logout(request):
+    refresh_token = request.data.get("refresh")
+    if not refresh_token:
+        return Response({"success": False, "message": "Refresh token required"}, status=400)
+    try:
+        RefreshToken(refresh_token).blacklist()
+        return Response({"success": True, "message": "Logged out successfully"})
+    except TokenError:
+        return Response({"success": False, "message": "Invalid or expired token"}, status=400)
+    except Exception:
+        return Response({"success": False, "message": "Logout failed"}, status=500)
+
+
+# ============================
+# Password Reset
+# ============================
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([BurstRateThrottle])
+def request_password_reset(request):
+    email = request.data.get("email", "").strip()
+    if not email:
+        return Response({"success": False, "message": "Email is required"}, status=400)
+    if not validate_email_format(email):
+        return Response({"success": False, "message": "Invalid email format"}, status=400)
+
+    email = normalize_email(email)
+    user = User.objects.filter(email=email).first()
+    if user:
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = PasswordResetTokenGenerator().make_token(user)
+
+        # Ensure FRONTEND_URL is configured
+        frontend_url = getattr(settings, 'FRONTEND_URL', None)
+        if not frontend_url:
+            # Log error and return generic response
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error("FRONTEND_URL not configured in settings")
+            return Response({"success": True, "message": "If this email exists, a reset link has been sent."})
+
+        reset_link = f"{frontend_url.rstrip('/')}/reset-password/{uid}/{token}/"
+        send_safe_mail(
+            "Password Reset",
+            f"Use this link to reset your password: {reset_link}",
+            [user.email],
+        )
+
+        # Log password reset attempt for security monitoring
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Password reset email sent to user: {user.email}")
+
+    # generic response to avoid enumeration
+    return Response({"success": True, "message": "If this email exists, a reset link has been sent."})
+
+
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
+def confirm_password_reset(request, uid, token):
+    password = request.data.get("password", "").strip()
+    if not password:
+        return Response({"success": False, "message": "Password is required"}, status=400)
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id)
+    except (DjangoUnicodeDecodeError, User.DoesNotExist):
+        return Response({"success": False, "message": "Invalid reset link"}, status=400)
+
+    if not default_token_generator.check_token(user, token):
+        # Log failed password reset attempt
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Invalid or expired password reset token for user: {user.email}")
+        return Response({"success": False, "message": "Invalid or expired token"}, status=400)
+
+    try:
+        validate_password(password, user)
+    except DjangoValidationError as e:
+        return Response(
+            {"success": False, "message": "Password validation failed", "errors": e.messages},
+            status=400,
+        )
+
+    user.set_password(password)
+    user.save()
+
+    # 🔒 Invalidate all existing refresh tokens
+    blacklist_all_user_refresh_tokens(user)
+
+    # Log successful password reset
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Password successfully reset for user: {user.email}")
+
+    return Response({"success": True, "message": "Password reset successful. Please log in again."})
+
+
+# ============================
+# Change Password
+# ============================
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
 def change_password(request):
     user = request.user
-    old_password = request.data.get("old_password")
-    new_password = request.data.get("new_password")
+    old_password = request.data.get("old_password", "").strip()
+    new_password = request.data.get("new_password", "").strip()
 
+    if not old_password:
+        return Response({"success": False, "message": "Old password is required"}, status=400)
+    if not new_password:
+        return Response({"success": False, "message": "New password is required"}, status=400)
     if not user.check_password(old_password):
-        return Response({"detail": "Old password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"success": False, "message": "Old password is incorrect"}, status=400)
+
+    try:
+        validate_password(new_password, user)
+    except DjangoValidationError as e:
+        return Response(
+            {"success": False, "message": "Password validation failed", "errors": e.messages},
+            status=400,
+        )
 
     user.set_password(new_password)
     user.save()
-    return Response({"detail": "Password updated successfully."})
+
+    # 🔒 Invalidate all existing refresh tokens
+    blacklist_all_user_refresh_tokens(user)
+
+    return Response({"success": True, "message": "Password changed successfully. Please log in again."})
 
 
-# =========================
-# PASSWORD RESET
-# (Stub implementation — expand with email/SMS logic later)
-# =========================
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def request_password_reset(request):
-    return Response({"detail": "Password reset instructions would be sent."})
+# ============================
+# User Profile
+# ============================
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def user_profile(request):
+    return Response({"success": True, "user": UserSerializer(request.user).data})
 
 
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def confirm_password_reset(request, uid, token):
-    return Response({"detail": "Password has been reset."})
-
-
-# =========================
-# VIEWSETS
-# =========================
+# ============================
+# ViewSets
+# ============================
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAdminUser]
 
 
 class ParentViewSet(viewsets.ModelViewSet):
-    queryset = Parent.objects.all()
     serializer_class = ParentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Parent.objects.filter(user=self.request.user)
 
 
 class StudentViewSet(viewsets.ModelViewSet):
-    queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Return students where the logged-in user is one of the parents
+        return Student.objects.filter(parents=self.request.user)
