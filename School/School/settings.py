@@ -194,14 +194,13 @@ SWAGGER_SETTINGS = {
 }
 
 # ============================
-# Social Auth (Google)
+# Social Auth (Google Only)
 # ============================
 AUTHENTICATION_BACKENDS = (
-    "social_core.backends.google.GoogleOAuth2",  # Google OAuth2
+    "social_core.backends.google.GoogleOAuth2",
     "django.contrib.auth.backends.ModelBackend",
 )
 
-# Google OAuth2 Config
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv(

@@ -30,7 +30,9 @@ urlpatterns = [
     # Core API
     path("api/v1/", include("api.urls")),
 
-    # Social Auth - Only Google OAuth2 login
+    # Google OAuth2 (social-auth-app-django)
+    # Login   → /auth/login/google-oauth2/
+    # Callback → /auth/complete/google-oauth2/
     path("auth/", include("social_django.urls", namespace="social")),
 
     # API Docs (Swagger & Redoc)
