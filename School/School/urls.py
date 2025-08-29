@@ -27,8 +27,8 @@ urlpatterns = [
     # Admin Dashboard
     path("admin/", admin.site.urls),
 
-    # Core API
-    path("api/v1/", include("api.urls")),
+    # Core API (versioned)
+    path("api/v1/", include("api.urls", namespace="api")),
 
     # Google OAuth2 (social-auth-app-django)
     # Login   → /auth/login/google-oauth2/
