@@ -1,0 +1,26 @@
+{
+  "name": "Steva-App",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "batisteo.vscode-django",
+        "ms-vscode.vscode-json",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "forwardPorts": [8000, 5432],
+  "postCreateCommand": "pip install --upgrade pip && docker --version",
+  "remoteUser": "codespace",
+  "runArgs": ["--init"]
+}
