@@ -31,8 +31,9 @@ Thumbs.db
 
 
 
-../.env
-../Procfile
 logs/
-../env/
-api/utils.py
+setup_postgres.sql
+migrate_to_postgres.sh
+migrate_to_postgres.bat
+FACEBOOK_OAUTH_SETUP.md
+APPLE_OAUTH_SETUP.md
