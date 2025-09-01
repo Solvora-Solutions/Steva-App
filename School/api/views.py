@@ -128,7 +128,7 @@ class RegisterView(generics.CreateAPIView):
 
 
 # ============================
-# Unified Login (email or Google)
+# Unified Login (email, Google, Facebook, Apple)
 # ============================
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
@@ -215,7 +215,7 @@ def unified_login(request):
             )
 
         return Response(
-            {"success": False, "message": "Invalid login type. Use 'email' or 'google'"},
+            {"success": False, "message": "Invalid login type. Use 'email', 'google', 'facebook', or 'apple'"},
             status=400,
         )
 
@@ -223,6 +223,35 @@ def unified_login(request):
         return Response({"success": False, "message": "Invalid Google token"}, status=400)
     except Exception:
         return Response({"success": False, "message": "Login failed. Try again later."}, status=500)
+
+
+# ============================
+# OAuth URLs for Frontend
+# ============================
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def oauth_urls(request):
+    """Return OAuth login URLs for frontend redirection."""
+    from django.urls import reverse
+    from django.contrib.sites.models import Site
+
+    try:
+        current_site = Site.objects.get_current()
+        base_url = f"https://{current_site.domain}" if not settings.DEBUG else "http://127.0.0.1:8000"
+    except:
+        base_url = "http://127.0.0.1:8000" if settings.DEBUG else "https://yourdomain.com"
+
+    urls = {
+        "google": f"{base_url}/auth/login/google-oauth2/",
+        "facebook": f"{base_url}/auth/login/facebook/",
+        "apple": f"{base_url}/auth/login/apple-id/",
+    }
+
+    return Response({
+        "success": True,
+        "oauth_urls": urls,
+        "message": "Use these URLs to redirect users to OAuth providers"
+    })
 
 
 # ============================
