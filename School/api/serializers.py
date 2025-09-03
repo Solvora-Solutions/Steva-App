@@ -49,9 +49,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name',
-            'password', 'confirm_password', 'is_active', 'date_joined', 'role'
+            'password', 'confirm_password', 'is_active', 'is_staff', 'date_joined', 'role'
         ]
-        read_only_fields = ['id', 'date_joined']
+        read_only_fields = ['id', 'date_joined', 'is_staff']
         extra_kwargs = {
             'email': {'required': True, 'max_length': 254},
             'first_name': {'required': True, 'max_length': 50},
@@ -231,17 +231,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=128,
         style={'input_type': 'password'}
     )
-    role = serializers.ChoiceField(
-        choices=[('parent', 'Parent'), ('admin', 'Admin')],
-        default='parent',
-        write_only=True
-    )
-
     class Meta:
         model = User
         fields = [
             'email', 'first_name', 'last_name', 'phone_number',
-            'password', 'confirm_password', 'role'
+            'password', 'confirm_password'
         ]
         extra_kwargs = {
             'email': {'required': True, 'max_length': 254},
