@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 import dj_database_url
+from corsheaders.defaults import default_headers  # ✅ Added import
 
 # ============================
 # Base Directory
@@ -59,7 +60,7 @@ INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 # ============================
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # ✅ Must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -129,6 +130,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
+    ] if not DEBUG else [
+        "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
     "DEFAULT_PARSER_CLASSES": [
@@ -157,15 +160,33 @@ SIMPLE_JWT = {
 # ============================
 # CORS
 # ============================
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite dev server
+    "http://127.0.0.1:5173",
+]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "ngrok-skip-browser-warning",
+    "x-requested-with",
+]
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
 
 # ============================
 # Email (Dev)
 # ============================
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@school.dev"
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173/")
 
 # ============================
 # Static & Media
@@ -194,10 +215,31 @@ SWAGGER_SETTINGS = {
 }
 
 # ============================
-# Social Auth (Google Only)
+# Security Headers
+# ============================
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    X_FRAME_OPTIONS = "DENY"
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# ============================
+# Social Auth (Google, Facebook, Apple)
 # ============================
 AUTHENTICATION_BACKENDS = (
     "social_core.backends.google.GoogleOAuth2",
+    "social_core.backends.facebook.FacebookOAuth2",
+    "social_core.backends.apple.AppleIdAuth",
     "django.contrib.auth.backends.ModelBackend",
 )
 
@@ -216,8 +258,39 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
 ]
 SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]
 
+# ============================
+# Facebook OAuth2
+# ============================
+SOCIAL_AUTH_FACEBOOK_KEY = os.getenv("FACEBOOK_APP_ID")
+SOCIAL_AUTH_FACEBOOK_SECRET = os.getenv("FACEBOOK_APP_SECRET")
+SOCIAL_AUTH_FACEBOOK_REDIRECT_URI = os.getenv(
+    "FACEBOOK_REDIRECT_URI",
+    "http://127.0.0.1:8000/auth/complete/facebook/"
+)
+
+SOCIAL_AUTH_FACEBOOK_SCOPE = ["email", "public_profile"]
+SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
+    "fields": "id,name,email,first_name,last_name,picture"
+}
+SOCIAL_AUTH_FACEBOOK_EXTRA_DATA = ["first_name", "last_name", "picture"]
+
+# ============================
+# Apple OAuth2
+# ============================
+SOCIAL_AUTH_APPLE_ID_CLIENT = os.getenv("APPLE_CLIENT_ID")
+SOCIAL_AUTH_APPLE_ID_TEAM = os.getenv("APPLE_TEAM_ID")
+SOCIAL_AUTH_APPLE_ID_KEY = os.getenv("APPLE_KEY_ID")
+SOCIAL_AUTH_APPLE_ID_SECRET = os.getenv("APPLE_PRIVATE_KEY")
+SOCIAL_AUTH_APPLE_ID_REDIRECT_URI = os.getenv(
+    "APPLE_REDIRECT_URI",
+    "http://127.0.0.1:8000/auth/complete/apple-id/"
+)
+
+SOCIAL_AUTH_APPLE_ID_SCOPE = ["email", "name"]
+SOCIAL_AUTH_APPLE_ID_EMAIL_AS_USERNAME = True
+
 # Login / Logout redirects
 LOGIN_URL = "/auth/login/google-oauth2/"
 LOGOUT_URL = "/logout/"
-LOGIN_REDIRECT_URL = FRONTEND_URL
-LOGOUT_REDIRECT_URL = FRONTEND_URL
+LOGIN_REDIRECT_URL = "http://localhost:5173/"
+LOGOUT_REDIRECT_URL = "http://localhost:5173/"

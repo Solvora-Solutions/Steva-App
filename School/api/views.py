@@ -73,11 +73,19 @@ def blacklist_all_user_refresh_tokens(user):
 # Throttling
 # ============================
 class BurstRateThrottle(throttling.UserRateThrottle):
-    rate = "5/min"
+    rate = "3/min"
 
 
 class SustainedRateThrottle(throttling.UserRateThrottle):
-    rate = "100/day"
+    rate = "50/day"
+
+
+class AuthRateThrottle(throttling.UserRateThrottle):
+    rate = "5/min"
+
+
+class PasswordResetThrottle(throttling.UserRateThrottle):
+    rate = "2/min"
 
 
 # ============================
@@ -86,7 +94,7 @@ class SustainedRateThrottle(throttling.UserRateThrottle):
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+    throttle_classes = [AuthRateThrottle, SustainedRateThrottle]
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
@@ -128,11 +136,11 @@ class RegisterView(generics.CreateAPIView):
 
 
 # ============================
-# Unified Login (email or Google)
+# Unified Login (email, Google, Facebook, Apple)
 # ============================
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
-@throttle_classes([BurstRateThrottle, SustainedRateThrottle])
+@throttle_classes([AuthRateThrottle, SustainedRateThrottle])
 def unified_login(request):
     login_type = request.data.get("type")
 
@@ -198,8 +206,20 @@ def unified_login(request):
             try:
                 candidate = User.objects.get(email=email)
                 user_exists = True
+
+                # Check if account is locked
+                if candidate.is_locked():
+                    return Response({"success": False, "message": "Account is temporarily locked due to too many failed login attempts. Please try again later."}, status=429)
+
                 if candidate.check_password(password):
                     user = candidate
+                    # Reset failed attempts on successful login
+                    user.reset_failed_attempts()
+                    user.last_login = timezone.now()
+                    user.save(update_fields=['last_login'])
+                else:
+                    # Increment failed attempts on wrong password
+                    candidate.increment_failed_attempts()
             except User.DoesNotExist:
                 pass
             if not user_exists:
@@ -215,14 +235,51 @@ def unified_login(request):
             )
 
         return Response(
-            {"success": False, "message": "Invalid login type. Use 'email' or 'google'"},
+            {"success": False, "message": "Invalid login type. Use 'email', 'google', 'facebook', or 'apple'"},
             status=400,
         )
 
     except ValueError:
-        return Response({"success": False, "message": "Invalid Google token"}, status=400)
-    except Exception:
-        return Response({"success": False, "message": "Login failed. Try again later."}, status=500)
+        # Log the error for debugging but don't expose details to user
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("Invalid Google OAuth token provided")
+        return Response({"success": False, "message": "Invalid authentication token"}, status=400)
+    except Exception as e:
+        # Log the actual error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Login failed: {str(e)}")
+        return Response({"success": False, "message": "Login failed. Please try again later."}, status=500)
+
+
+# ============================
+# OAuth URLs for Frontend
+# ============================
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def oauth_urls(request):
+    """Return OAuth login URLs for frontend redirection."""
+    from django.urls import reverse
+    from django.contrib.sites.models import Site
+
+    try:
+        current_site = Site.objects.get_current()
+        base_url = f"https://{current_site.domain}" if not settings.DEBUG else "http://127.0.0.1:8000"
+    except:
+        base_url = "http://127.0.0.1:8000" if settings.DEBUG else "https://yourdomain.com"
+
+    urls = {
+        "google": f"{base_url}/auth/login/google-oauth2/",
+        "facebook": f"{base_url}/auth/login/facebook/",
+        "apple": f"{base_url}/auth/login/apple-id/",
+    }
+
+    return Response({
+        "success": True,
+        "oauth_urls": urls,
+        "message": "Use these URLs to redirect users to OAuth providers"
+    })
 
 
 # ============================
@@ -249,7 +306,7 @@ def user_logout(request):
 # ============================
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
-@throttle_classes([BurstRateThrottle])
+@throttle_classes([PasswordResetThrottle, SustainedRateThrottle])
 def request_password_reset(request):
     email = request.data.get("email", "").strip()
     if not email:
@@ -259,6 +316,8 @@ def request_password_reset(request):
 
     email = normalize_email(email)
     user = User.objects.filter(email=email).first()
+
+    # Always return the same response to prevent user enumeration
     if user:
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = PasswordResetTokenGenerator().make_token(user)
@@ -274,8 +333,15 @@ def request_password_reset(request):
 
         reset_link = f"{frontend_url.rstrip('/')}/reset-password/{uid}/{token}/"
         send_safe_mail(
-            "Password Reset",
-            f"Use this link to reset your password: {reset_link}",
+            "Password Reset Request",
+            f"""You requested a password reset for your account.
+
+Use this link to reset your password: {reset_link}
+
+This link will expire in 24 hours.
+
+If you didn't request this reset, please ignore this email.
+Your password will remain unchanged.""",
             [user.email],
         )
 
@@ -284,7 +350,7 @@ def request_password_reset(request):
         logger = logging.getLogger(__name__)
         logger.info(f"Password reset email sent to user: {user.email}")
 
-    # generic response to avoid enumeration
+    # Generic response to avoid enumeration
     return Response({"success": True, "message": "If this email exists, a reset link has been sent."})
 
 

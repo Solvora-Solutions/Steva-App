@@ -58,7 +58,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='parent')
 
     # Tracking fields
-    date_joined = models.DateTimeField(default=timezone.now)  # ✅ added
+    date_joined = models.DateTimeField(default=timezone.now)
+    last_login = models.DateTimeField(null=True, blank=True)
+
+    # Security fields
+    failed_login_attempts = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
 
     # Permissions
     is_active = models.BooleanField(default=True)
@@ -75,3 +80,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_staff(self):
         """Grant admin access for Django admin."""
         return self.role == 'admin' or self.is_superuser
+
+    def is_locked(self):
+        """Check if account is temporarily locked due to failed login attempts."""
+        if self.locked_until and timezone.now() < self.locked_until:
+            return True
+        return False
+
+    def reset_failed_attempts(self):
+        """Reset failed login attempts counter."""
+        self.failed_login_attempts = 0
+        self.locked_until = None
+        self.save(update_fields=['failed_login_attempts', 'locked_until'])
+
+    def increment_failed_attempts(self):
+        """Increment failed login attempts and lock account if necessary."""
+        self.failed_login_attempts += 1
+        if self.failed_login_attempts >= 5:  # Lock after 5 failed attempts
+            self.locked_until = timezone.now() + timezone.timedelta(minutes=15)  # Lock for 15 minutes
+        self.save(update_fields=['failed_login_attempts', 'locked_until'])

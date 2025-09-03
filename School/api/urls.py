@@ -8,6 +8,7 @@ from .views import (
     StudentViewSet,
     RegisterView,
     unified_login,
+    oauth_urls,
     user_logout,
     request_password_reset,
     confirm_password_reset,
@@ -39,6 +40,7 @@ urlpatterns = [
     # ----------------------------
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", unified_login, name="unified_login"),  # Custom Email/Phone login
+    path("auth/oauth-urls/", oauth_urls, name="oauth_urls"),  # OAuth provider URLs
     path("auth/logout/", user_logout, name="user_logout"),
     path("auth/profile/", user_profile, name="user_profile"),
     path("auth/change-password/", change_password, name="change_password"),
