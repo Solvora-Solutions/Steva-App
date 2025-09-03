@@ -48,15 +48,15 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'password', 'confirm_password', 'is_active', 'date_joined', 'role'
+            'id', 'email', 'first_name', 'last_name',
+            'password', 'confirm_password', 'is_active', 'is_staff', 'date_joined', 'role'
         ]
-        read_only_fields = ['id', 'date_joined']
+        read_only_fields = ['id', 'date_joined', 'is_staff']
         extra_kwargs = {
             'email': {'required': True, 'max_length': 254},
             'first_name': {'required': True, 'max_length': 50},
             'last_name': {'required': True, 'max_length': 50},
-            'username': {'max_length': 150},
+        
         }
 
     def validate_email(self, value):
@@ -213,6 +213,130 @@ class StudentSerializer(serializers.ModelSerializer):
 
 
 # ====================
+# REGISTER SERIALIZER
+# ====================
+class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user registration with role-based creation.
+    Handles user creation with password validation and confirmation.
+    """
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        max_length=128,
+        style={'input_type': 'password'}
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        max_length=128,
+        style={'input_type': 'password'}
+    )
+    class Meta:
+        model = User
+        fields = [
+            'email', 'first_name', 'last_name', 'phone_number',
+            'password', 'confirm_password'
+        ]
+        extra_kwargs = {
+            'email': {'required': True, 'max_length': 254},
+            'first_name': {'required': True, 'max_length': 100},
+            'last_name': {'required': True, 'max_length': 100},
+            'phone_number': {'required': False, 'max_length': 15},
+        }
+
+    def validate_email(self, value):
+        """Validate email format and uniqueness."""
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        value = escape(value.strip().lower())
+        try:
+            validate_email(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Invalid email format.")
+
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_password(self, value):
+        """Validate password strength using Django's validators."""
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        return value
+
+    def validate_first_name(self, value):
+        """Validate first name format."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("First name is required.")
+        value = value.strip()
+        if not re.match(r'^[a-zA-Z\s\-\'\.]+$', value):
+            raise serializers.ValidationError(
+                "First name can only contain letters, spaces, hyphens, apostrophes, and periods."
+            )
+        return value.title()
+
+    def validate_last_name(self, value):
+        """Validate last name format."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Last name is required.")
+        value = value.strip()
+        if not re.match(r'^[a-zA-Z\s\-\'\.]+$', value):
+            raise serializers.ValidationError(
+                "Last name can only contain letters, spaces, hyphens, apostrophes, and periods."
+            )
+        return value.title()
+
+    def validate_phone_number(self, value):
+        """Validate phone number format if provided."""
+        if value:
+            value = escape(value.strip())
+            digits_only = re.sub(r'\D', '', value)
+            if len(digits_only) < 10:
+                raise serializers.ValidationError("Phone number must have at least 10 digits.")
+            if len(digits_only) > 15:
+                raise serializers.ValidationError("Phone number cannot have more than 15 digits.")
+            if User.objects.filter(phone_number=value).exists():
+                raise serializers.ValidationError("A user with this phone number already exists.")
+        return value
+
+    def validate(self, attrs):
+        """Validate password confirmation and other cross-field validations."""
+        password = attrs.get('password')
+        confirm_password = attrs.get('confirm_password')
+
+        if password and confirm_password and password != confirm_password:
+            raise serializers.ValidationError({
+                'confirm_password': 'Passwords do not match.'
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        """Create a new user with the validated data."""
+        try:
+            with transaction.atomic():
+                # Remove confirm_password as it's not needed for user creation
+                validated_data.pop('confirm_password', None)
+
+                # Extract password for separate handling
+                password = validated_data.pop('password')
+
+               
+                # Create user instance
+                user = User(**validated_data)
+                user.set_password(password)
+                user.save()
+
+                return user
+        except IntegrityError:
+            raise serializers.ValidationError({
+                "error": "User registration failed. Please try again."
+            })
+
+
+# ====================
 # PARENT SERIALIZER
 # ====================
 class ParentSerializer(serializers.ModelSerializer):
@@ -229,7 +353,7 @@ class ParentSerializer(serializers.ModelSerializer):
             'display_phone', 'total_children'
         ]
         extra_kwargs = {
-            'phone_number': {'required': True, 'max_length': 20},
+            'phone_number': {'required': True, 'max_length': 12},
         }
 
     def validate_phone_number(self, value):
