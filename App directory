@@ -1,5 +1,5 @@
-school-management-system/
-├── backend/                 # Django + DRF backend
+steva-app/
+├── school/                 # Django + DRF backend
 │   ├── manage.py
 │   ├── requirements.txt
 │   ├── Procfile             # Render uses this to start Django
