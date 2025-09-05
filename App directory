@@ -1,0 +1,22 @@
+school-management-system/
+├── backend/                 # Django + DRF backend
+│   ├── manage.py
+│   ├── requirements.txt
+│   ├── Procfile             # Render uses this to start Django
+│   ├── backend/             # Django project folder
+│   │   ├── settings.py
+│   │   ├── urls.py
+│   │   └── wsgi.py
+│   └── apps/                # Your Django apps (students, payments, etc.)
+│
+├── frontend/                # React Native frontend (Expo or CLI)
+│   ├── App.js
+│   ├── package.json
+│   └── src/
+│       ├── screens/
+│       ├── components/
+│       └── services/
+│
+├── .gitignore
+├── README.md
+└── docs/                    # Any project documentation
