@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 import dj_database_url
-from corsheaders.defaults import default_headers  # ✅ Added import
+from corsheaders.defaults import default_headers
 
 # ============================
 # Base Directory
@@ -21,9 +21,22 @@ load_dotenv()
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.environ.get(
-    "ALLOWED_HOSTS", "localhost,127.0.0.1,.ngrok-free.app"
-).split(",")
+# ============================
+# Time Zone
+# ============================
+TIME_ZONE = 'Africa/Accra'
+
+# ✅ Flexible ALLOWED_HOSTS parsing (supports all ngrok tunnels)
+ALLOWED_HOSTS = [
+    host.strip() for host in os.environ.get(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1,.ngrok-free.app"
+    ).split(",")
+]
+
+# Add Render host if on Render
+if os.environ.get("RENDER"):
+    ALLOWED_HOSTS.append(".onrender.com")
 
 # ============================
 # Installed Apps
@@ -50,7 +63,8 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "drf_yasg",
     "corsheaders",
-    "social_django",  # Google OAuth2
+    "social_django",  # Google, Facebook, Apple sign-in
+    "whitenoise.runserver_nostatic",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
@@ -60,7 +74,8 @@ INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 # ============================
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",  # ✅ Must be before CommonMiddleware
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # ✅ must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -126,7 +141,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.AllowAny",  # Changed from IsAuthenticated to AllowAny
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -166,6 +181,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:5173",
+    "https://0bbecfc27b76.ngrok-free.app",  # Specific ngrok URL
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
@@ -194,6 +210,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173/")
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -250,7 +267,6 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv(
     "http://127.0.0.1:8000/auth/login/google-oauth2/complete/"
 )
 
-# Scopes & extra data
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -289,7 +305,9 @@ SOCIAL_AUTH_APPLE_ID_REDIRECT_URI = os.getenv(
 SOCIAL_AUTH_APPLE_ID_SCOPE = ["email", "name"]
 SOCIAL_AUTH_APPLE_ID_EMAIL_AS_USERNAME = True
 
+# ============================
 # Login / Logout redirects
+# ============================
 LOGIN_URL = "/auth/login/google-oauth2/"
 LOGOUT_URL = "/logout/"
 LOGIN_REDIRECT_URL = "http://localhost:5173/"
