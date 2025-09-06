@@ -37,3 +37,17 @@ migrate_to_postgres.sh
 migrate_to_postgres.bat
 FACEBOOK_OAUTH_SETUP.md
 APPLE_OAUTH_SETUP.md
+ ../.env
+        ../.env.example
+        ../APPLE_OAUTH_SETUP.md
+        ../FACEBOOK_OAUTH_SETUP.md
+        Users/signals.py
+        server_output.log
+        ../build.sh
+        ../db.sqlite3
+        ../env/
+        ../migrate_to_postgres.bat
+        ../migrate_to_postgres.sh
+        ../render.yaml
+        ../requirements.txt
+        ../setup_postgres.sql
