@@ -2,9 +2,11 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import redirect
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from . import views
 
 # ============================
 # API Documentation (Swagger/Redoc)
@@ -24,8 +26,14 @@ schema_view = get_schema_view(
 # URL Patterns
 # ============================
 urlpatterns = [
+    # Root
+    path("", lambda request: redirect("/admin/"), name="root"),
+
     # Admin Dashboard
     path("admin/", admin.site.urls),
+
+    # Health Check
+    path("health/", views.health_check, name="health_check"),
 
     # Core API (versioned)
     path("api/v1/", include("api.urls", namespace="api")),
