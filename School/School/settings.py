@@ -36,7 +36,7 @@ ALLOWED_HOSTS = [
 
 # Add Render host if on Render
 if os.environ.get("RENDER"):
-    ALLOWED_HOSTS.append(".onrender.com")
+    ALLOWED_HOSTS.append("steva-app.onrender.com")
 
 # ============================
 # Installed Apps

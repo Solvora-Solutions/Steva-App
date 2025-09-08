@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from . import views
 
 # ============================
 # API Documentation (Swagger/Redoc)
@@ -30,6 +31,9 @@ urlpatterns = [
 
     # Admin Dashboard
     path("admin/", admin.site.urls),
+
+    # Health Check
+    path("health/", views.health_check, name="health_check"),
 
     # Core API (versioned)
     path("api/v1/", include("api.urls", namespace="api")),
