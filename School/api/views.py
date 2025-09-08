@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
+from django.utils import timezone
 from django.utils.encoding import force_str, force_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.db import transaction
@@ -14,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+from django.views.decorators.csrf import csrf_exempt
 
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -138,16 +140,23 @@ class RegisterView(generics.CreateAPIView):
 # ============================
 # Unified Login (email, Google, Facebook, Apple)
 # ============================
-@api_view(["POST"])
+@api_view(["POST", "OPTIONS"])
 @permission_classes([permissions.AllowAny])
 @throttle_classes([AuthRateThrottle, SustainedRateThrottle])
 def unified_login(request):
-    login_type = request.data.get("type")
-
-    if not login_type:
-        return Response({"success": False, "message": "Login type is required"}, status=400)
-
     try:
+        # Handle OPTIONS requests
+        if request.method == "OPTIONS":
+            return Response({"success": True, "message": "OPTIONS request handled"})
+
+        # Infer login type from available data, ignoring any provided "type" field
+        if request.data.get("email") and request.data.get("password"):
+            login_type = "email"
+        elif request.data.get("token"):
+            login_type = "google"
+        else:
+            return Response({"success": False, "message": "Provide email and password for email login, or token for Google login"}, status=400)
+
         # ----- Google Login -----
         if login_type == "google":
             token = request.data.get("token")
@@ -177,11 +186,20 @@ def unified_login(request):
                 logger.info(f"Existing user logged in via Google: {user.email}")
 
             tokens = get_tokens_for_user(user)
+            user_data = {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "is_active": user.is_active,
+                "date_joined": user.date_joined
+            }
             return Response(
                 {
                     "success": True,
                     "message": "Google login successful",
-                    "user": UserSerializer(user).data,
+                    "user": user_data,
                     "tokens": tokens,
                 }
             )
@@ -229,10 +247,26 @@ def unified_login(request):
             if user is None:
                 return Response({"success": False, "message": "Invalid credentials"}, status=401)
 
-            tokens = get_tokens_for_user(user)
-            return Response(
-                {"success": True, "message": "Login successful", "user": UserSerializer(user).data, "tokens": tokens}
-            )
+            try:
+                tokens = get_tokens_for_user(user)
+                # Simple user data without serializer for now
+                user_data = {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role,
+                    "is_active": user.is_active,
+                    "date_joined": user.date_joined
+                }
+                return Response(
+                    {"success": True, "message": "Login successful", "user": user_data, "tokens": tokens}
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Token generation failed: {str(e)}")
+                return Response({"success": False, "message": "Login failed. Please try again later."}, status=500)
 
         return Response(
             {"success": False, "message": "Invalid login type. Use 'email', 'google', 'facebook', or 'apple'"},
@@ -433,6 +467,54 @@ def change_password(request):
 
 
 # ============================
+# Health Check
+# ============================
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def health_check(request):
+    """Health check endpoint for Render monitoring."""
+    from django.db import connection
+    try:
+        # Test database connection
+        cursor = connection.cursor()
+        cursor.execute("SELECT 1")
+        db_status = "healthy"
+    except Exception:
+        db_status = "unhealthy"
+
+    return Response({
+        "status": "healthy" if db_status == "healthy" else "unhealthy",
+        "database": db_status,
+        "timestamp": timezone.now().isoformat()
+    }, status=200 if db_status == "healthy" else 503)
+
+
+# ============================
+# API Root
+# ============================
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def api_root(request):
+    return Response({
+        "success": True,
+        "message": "Welcome to Steva School API v1",
+        "version": "1.0",
+        "endpoints": {
+            "auth": {
+                "login": "/api/v1/auth/login/",
+                "register": "/api/v1/auth/register/",
+                "logout": "/api/v1/auth/logout/",
+                "profile": "/api/v1/auth/profile/",
+            },
+            "users": "/api/v1/users/",
+            "parents": "/api/v1/parents/",
+            "students": "/api/v1/students/",
+            "docs": "/swagger/",
+        }
+    })
+
+
+# ============================
 # User Profile
 # ============================
 @api_view(["GET"])
@@ -463,5 +545,26 @@ class StudentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return students where the logged-in user is one of the parents
-        return Student.objects.filter(parents=self.request.user)
+        # Return students where the logged-in user's Parent profile is one of the parents
+        try:
+            parent = self.request.user.parent_profile
+            return Student.objects.filter(parents=parent)
+        except Parent.DoesNotExist:
+            return Student.objects.none()
+
+    def perform_create(self, serializer):
+        # Automatically link the student to the logged-in user's Parent profile
+        try:
+            parent = self.request.user.parent_profile
+        except Parent.DoesNotExist:
+            # If no Parent profile exists, create one
+            parent = Parent.objects.create(user=self.request.user)
+
+        # Get the parents from the serializer data, or initialize as empty list
+        parents = serializer.validated_data.get('parents', [])
+        # Add the current user's parent if not already included
+        if parent not in parents:
+            parents.append(parent)
+
+        # Save with the updated parents
+        serializer.save(parents=parents)
