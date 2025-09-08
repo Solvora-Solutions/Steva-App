@@ -50,4 +50,4 @@ APPLE_OAUTH_SETUP.md
         ../migrate_to_postgres.sh
         ../render.yaml
         ../requirements.txt
-        ../setup_postgres.sql
+        ../setup_postgres.sql 
