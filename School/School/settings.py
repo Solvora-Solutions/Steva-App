@@ -24,17 +24,19 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 # ============================
 # Time Zone
 # ============================
-TIME_ZONE = 'Africa/Accra'
+TIME_ZONE = "Africa/Accra"
 
-# ✅ Flexible ALLOWED_HOSTS parsing (supports all ngrok tunnels)
+# ============================
+# Allowed Hosts
+# ============================
 ALLOWED_HOSTS = [
-    host.strip() for host in os.environ.get(
-        "ALLOWED_HOSTS",
-        "localhost,127.0.0.1,.ngrok-free.app"
+    host.strip()
+    for host in os.environ.get(
+        "ALLOWED_HOSTS", "localhost,127.0.0.1,.ngrok-free.app"
     ).split(",")
 ]
 
-# Add Render host if on Render
+# Add Render domain if deployed
 if os.environ.get("RENDER"):
     ALLOWED_HOSTS.append("steva-app.onrender.com")
 
@@ -75,7 +77,7 @@ INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "corsheaders.middleware.CorsMiddleware",  # ✅ must be before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",  # must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -110,11 +112,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "School.wsgi.application"
 
 # ============================
-# Database
+# Database (Local Postgres with SQLite fallback)
 # ============================
 DATABASES = {
     "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+        default="postgres://admin:Amagedonia@1@localhost:5432/stevadb",
+        conn_max_age=600,
+        ssl_require=False,  # no SSL for local development
     )
 }
 
@@ -128,7 +132,10 @@ AUTH_USER_MODEL = "Users.User"
 # ============================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -141,14 +148,16 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",  # Changed from IsAuthenticated to AllowAny
+        "rest_framework.permissions.AllowAny",  # change to IsAuthenticated later if needed
     ],
-    "DEFAULT_RENDERER_CLASSES": [
-        "rest_framework.renderers.JSONRenderer",
-    ] if not DEBUG else [
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer",
-    ],
+    "DEFAULT_RENDERER_CLASSES": (
+        ["rest_framework.renderers.JSONRenderer"]
+        if not DEBUG
+        else [
+            "rest_framework.renderers.JSONRenderer",
+            "rest_framework.renderers.BrowsableAPIRenderer",
+        ]
+    ),
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
         "rest_framework.parsers.MultiPartParser",
@@ -181,21 +190,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:5173",
-    "https://0bbecfc27b76.ngrok-free.app",  # Specific ngrok URL
+    "https://0bbecfc27b76.ngrok-free.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "ngrok-skip-browser-warning",
     "x-requested-with",
 ]
-CORS_ALLOW_METHODS = [
-    "GET",
-    "POST",
-    "PUT",
-    "PATCH",
-    "DELETE",
-    "OPTIONS",
-]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 # ============================
 # Email (Dev)
@@ -246,10 +248,6 @@ if not DEBUG:
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
     X_FRAME_OPTIONS = "DENY"
 
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-
 # ============================
 # Social Auth (Google, Facebook, Apple)
 # ============================
@@ -260,13 +258,13 @@ AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
 )
 
+# Google OAuth2
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",
-    "http://127.0.0.1:8000/auth/login/google-oauth2/complete/"
+    "http://127.0.0.1:8000/auth/login/google-oauth2/complete/",
 )
-
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -274,34 +272,28 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
 ]
 SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]
 
-# ============================
 # Facebook OAuth2
-# ============================
 SOCIAL_AUTH_FACEBOOK_KEY = os.getenv("FACEBOOK_APP_ID")
 SOCIAL_AUTH_FACEBOOK_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 SOCIAL_AUTH_FACEBOOK_REDIRECT_URI = os.getenv(
     "FACEBOOK_REDIRECT_URI",
-    "http://127.0.0.1:8000/auth/complete/facebook/"
+    "http://127.0.0.1:8000/auth/complete/facebook/",
 )
-
 SOCIAL_AUTH_FACEBOOK_SCOPE = ["email", "public_profile"]
 SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
     "fields": "id,name,email,first_name,last_name,picture"
 }
 SOCIAL_AUTH_FACEBOOK_EXTRA_DATA = ["first_name", "last_name", "picture"]
 
-# ============================
 # Apple OAuth2
-# ============================
 SOCIAL_AUTH_APPLE_ID_CLIENT = os.getenv("APPLE_CLIENT_ID")
 SOCIAL_AUTH_APPLE_ID_TEAM = os.getenv("APPLE_TEAM_ID")
 SOCIAL_AUTH_APPLE_ID_KEY = os.getenv("APPLE_KEY_ID")
 SOCIAL_AUTH_APPLE_ID_SECRET = os.getenv("APPLE_PRIVATE_KEY")
 SOCIAL_AUTH_APPLE_ID_REDIRECT_URI = os.getenv(
     "APPLE_REDIRECT_URI",
-    "http://127.0.0.1:8000/auth/complete/apple-id/"
+    "http://127.0.0.1:8000/auth/complete/apple-id/",
 )
-
 SOCIAL_AUTH_APPLE_ID_SCOPE = ["email", "name"]
 SOCIAL_AUTH_APPLE_ID_EMAIL_AS_USERNAME = True
 
