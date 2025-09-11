@@ -32,13 +32,11 @@ TIME_ZONE = "Africa/Accra"
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        "ALLOWED_HOSTS", "localhost,127.0.0.1,.ngrok-free.app"
+        "ALLOWED_HOSTS", "localhost,127.0.0.1,.ngrok-free.app,steva-app.onrender.com"
     ).split(",")
 ]
 
-# Add Render domain if deployed
-if os.environ.get("RENDER"):
-    ALLOWED_HOSTS.append("steva-app.onrender.com")
+
 
 # ============================
 # Installed Apps
@@ -50,6 +48,7 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
 ]
 
 LOCAL_APPS = [
@@ -112,11 +111,11 @@ TEMPLATES = [
 WSGI_APPLICATION = "School.wsgi.application"
 
 # ============================
-# Database (Local Postgres with SQLite fallback)
+# Database (PostgreSQL)
 # ============================
 DATABASES = {
     "default": dj_database_url.config(
-        default="postgres://admin:Amagedonia@1@localhost:5432/stevadb",
+        default="postgres://admin:Amagedonia%401@localhost:5432/stevadb",
         conn_max_age=600,
         ssl_require=False,  # no SSL for local development
     )
@@ -191,6 +190,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:5173",
     "https://0bbecfc27b76.ngrok-free.app",
+    "https://steva-app.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
@@ -259,7 +259,8 @@ AUTHENTICATION_BACKENDS = (
 )
 
 # Google OAuth2
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = GOOGLE_CLIENT_ID
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",
