@@ -18,7 +18,7 @@ load_dotenv()
 # ============================
 # Security & Debug
 # ============================
-SECRET_KEY = os.environ.get("25g(h4855r#o_4qpkn*q=vie9omig*@i5(&iq@@$ingr&ml8qj")
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 # ============================
