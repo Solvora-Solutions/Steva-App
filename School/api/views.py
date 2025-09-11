@@ -301,7 +301,7 @@ def oauth_urls(request):
         current_site = Site.objects.get_current()
         base_url = f"https://{current_site.domain}" if not settings.DEBUG else "http://127.0.0.1:8000"
     except:
-        base_url = "http://127.0.0.1:8000" if settings.DEBUG else "https://yourdomain.com"
+        base_url = "http://127.0.0.1:8000" if settings.DEBUG else "https://steva-app.onrender.com"
 
     urls = {
         "google": f"{base_url}/auth/login/google-oauth2/",
@@ -497,8 +497,7 @@ def health_check(request):
 def api_root(request):
     return Response({
         "success": True,
-        "message": "Welcome to Steva School API v1",
-        "version": "1.0",
+        "message": "Welcome to Steva School API ",
         "endpoints": {
             "auth": {
                 "login": "/api/v1/auth/login/",
