@@ -264,7 +264,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = GOOGLE_CLIENT_ID
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",
-    "http://127.0.0.1:8000/auth/login/google-oauth2/complete/",
+    "http://127.0.0.1:8000/auth/complete/google-oauth2/",
 )
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.email",
