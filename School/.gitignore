@@ -1,0 +1,53 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.env
+__pycache__/
+db.sqlite3
+/staticfiles/
+# Django static files
+staticfiles/
+static/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+
+
+
+logs/
+setup_postgres.sql
+migrate_to_postgres.sh
+migrate_to_postgres.bat
+FACEBOOK_OAUTH_SETUP.md
+APPLE_OAUTH_SETUP.md
+ ../.env
+        ../.env.example
+        ../APPLE_OAUTH_SETUP.md
+        ../FACEBOOK_OAUTH_SETUP.md
+        Users/signals.py
+        server_output.log
+        ../build.sh
+        ../db.sqlite3
+        ../env/
+        ../migrate_to_postgres.bat
+        ../migrate_to_postgres.sh
+        ../render.yaml
+        ../requirements.txt
+        ../setup_postgres.sql 
