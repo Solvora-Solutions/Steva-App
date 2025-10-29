@@ -1,0 +1,161 @@
+
+
+body{
+    background-color: #FFFFFF;
+    padding-bottom: 290px;
+
+}
+
+
+.LoginUpper{
+    align-items: center;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+
+
+button{
+    background-color: #837D90;
+    color: white;
+    border-radius: 5px;
+    width: 287px;
+    padding: 5px;
+    margin-top: 20px;
+    height: 54px;
+    margin-bottom: 15px;
+    border-color: #837D90;
+    cursor: pointer;
+}
+
+input{
+    width: 300px;
+    height: 30px;
+    border-radius: 5px;
+    border-color: #000000;
+    border-width: 1px;
+}
+
+ 
+
+ 
+
+.lower-btns{
+    display: flex;
+    text-align: center;
+    gap: 40px;
+    align-items: center;
+    justify-content: center;
+    padding-top: 20px;
+    padding-bottom: 20px;
+
+}
+
+.Entries{
+    display: flex;
+    flex-direction: column;
+
+    gap: 20px;
+    align-items: center;
+    
+}
+
+input::placeholder{
+    padding-left: 10px;
+    color: black;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px; 
+  margin-top: 20px;
+}
+
+.line {
+  width: 90px;
+  height: 1px;
+  background-color: #000000; 
+}
+
+.divider p {
+  margin: 0;
+  white-space: nowrap;
+  text-align: center;
+  color: #000000;
+  font-size: 14px;
+}
+
+span{
+    color: #F24900;
+}
+
+.CornerStyle{
+     position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 525.46px;
+    height: 316.02px;
+    padding-top: 40px;
+    margin-top: 40px;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.ButtonWrapper{
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.Ellipseicon{
+    width: 62.55px;
+    height: 63.28px;
+    margin-right: -20px;
+    
+}
+
+.TextWrapper{
+  left: 17px;
+  margin-left: -32px;
+}
+
+
+
+
+@media screen and (max-width: 480px) {
+  .CornerStyle {
+    width: 40%;
+    height: auto;
+  }
+
+  body {
+    padding-bottom: 150px; /* adjust based on new height */
+  }
+  
+  input{
+    width:100%;
+    max-width: 300px;
+    font-size: 16px;
+    margin-left: 50px;
+    
+  }
+.LoginUpper button {
+    width: 100%;
+    max-width: 300px;
+    margin: 10px auto;
+    display: block;
+  }
+
+
+ .Entries{
+   margin-left: -60px;
+
+ }
+
+
+
+}
+

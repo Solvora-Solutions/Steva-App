@@ -1,0 +1,49 @@
+.link-img{
+    width: 150px;
+    height : auto;
+    margin-bottom: 10px;
+}
+
+input {
+    margin-bottom: 15px;
+}
+
+.link-btn {
+    border-color: black;
+    width: 168px;
+    height: 57px;
+    display: flex;
+    align-items: center;
+    text-align: center;
+    padding-left: 50px;
+    font-weight: bolder;
+}
+
+ .Connecting-img{
+    width: 40px;
+    height: auto;
+    padding-left: 30px;
+}
+
+.Ellipse-icon{
+    width: 62.55px;
+    height:63.28px;
+    margin-right: -20px;
+}
+
+
+@media screen and (max-width: 480px) {
+    .Para{
+        margin-left: 35px;
+    }
+    
+
+    .link-btn{
+        display: flex;
+        align-items: center;
+        align-content: center;
+        text-align: center;
+        font-size: larger;
+        justify-content: center;
+    }
+}

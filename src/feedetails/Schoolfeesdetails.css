@@ -1,0 +1,10 @@
+.pWrapper{
+   left: -95px;
+   position: relative;
+   margin-left: 0;
+
+}
+
+p{
+    margin-bottom: 4px;
+}

@@ -1,0 +1,22 @@
+.Verify-btn{
+    width: 168px;
+    height:57px;
+    background-color: #FFFFFF;
+    color: black;
+    font-weight: bolder;
+    display: flex;
+    align-items: center;
+    padding: 10px ;
+    padding-left: 36px;
+    border-color: #000000;
+
+}
+
+.Verify-btn .iconimg{
+      width: 60px;
+      height: 60px;
+      Top: 502px;
+      left: 226px;
+      margin-right: 10px;
+}
+
