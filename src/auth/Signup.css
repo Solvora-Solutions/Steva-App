@@ -1,0 +1,76 @@
+.options{
+    display: flex;
+    gap: 80px;
+    text-align: center;
+    justify-content: center;
+    font-size: small;
+    color: #000000;
+}
+
+input[type=checkbox]{
+    width: 15px;
+    height: 15px;
+
+}
+.Steva-img{
+     width: 200px;
+     border-radius: 10px;
+     height: auto;
+     margin-bottom: 0px;
+    
+}
+
+.TextWrapper{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    align-items: center;
+    transform: none;
+}
+
+
+h1{
+    text-align: center;
+    font-size: 25px;
+    color: #000000;
+    font-weight: 400;
+    padding :0;
+    margin-top: -30px;   
+    height: 23px;                                  
+}
+
+.lower-btns img{
+    width: 20px;
+    height: 20px;
+
+}
+
+.facebook-wrapper{
+    width: 50px;
+    height: 20px;
+    
+}
+
+.Login-btn{
+      background-color: #837D90;
+    color: white;
+    border-radius: 5px;
+    max-width: 287px ;
+    padding: 5px;
+    margin-top: 20px;
+    height: 54px;
+    margin-bottom: 15px;
+    border-color: #837D90;
+}
+@media screen and (max-width: 480px) {
+  
+.options{
+   margin-left: -50px;
+}
+
+ }
+
+
+
+
+

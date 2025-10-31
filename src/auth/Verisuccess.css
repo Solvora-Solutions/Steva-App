@@ -1,0 +1,16 @@
+.VeriUpper{
+     padding-bottom: 40px; 
+}
+
+.VeriUpper{
+     display: flex;
+     flex-direction: column;
+     text-align: center;
+     align-items: center;
+}
+
+.check{
+     width: 15px;
+     height: auto;
+}
+

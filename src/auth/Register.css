@@ -1,0 +1,33 @@
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px; 
+  margin-top: 20px;
+}
+
+.line {
+  width: 90px;
+  height: 1px;
+  background-color: #000000; 
+}
+
+.divider p {
+  margin: 0;
+  white-space: nowrap;
+  text-align: center;
+  color: #000000;
+  font-size: 14px;
+}
+
+.Register-btn{
+  background-color: #837D90;
+    color: white;
+    border-radius: 5px;
+    width: 287px;
+    padding: 5px;
+    margin-top: 20px;
+    height: 54px;
+    margin-bottom: 15px;
+    border-color: #837D90;
+}
